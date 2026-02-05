@@ -6,11 +6,13 @@
 #include "nvs_flash.h"
 #include "esp_err.h"
 #include "esp_check.h"
+#include "esp_event.h"
 
 // Managed Components Includes
 // #include "led_strip.h"
 
 // Components Includes
+#include "js_events.h"
 #include "js_leds.h"
 #include "js_sleep.h"
 #include "js_serial_input.h"
@@ -21,6 +23,7 @@
 // Forward Declarations
 static esp_err_t systemInits(void);
 static esp_err_t componentInits(void);
+static void app_event_handler(void *arg, esp_event_base_t base, int32_t id, void *data);
 
 /*************************** Main Loop ***************************/
 void app_main(void)
@@ -40,11 +43,11 @@ void app_main(void)
 	while (1)
 	{
 		js_leds_set_color(10, 0, 0); // Red
-		printf("LED ON\n");
+		// printf("LED ON\n");
 		vTaskDelay(pdMS_TO_TICKS(500));
 
 		js_leds_clear();
-		printf("LED OFF\n");
+		// printf("LED OFF\n");
 		vTaskDelay(pdMS_TO_TICKS(500));
 	}
 }
@@ -58,6 +61,8 @@ static esp_err_t systemInits(void)
 	ESP_LOGI(TAG, "systemInits starting...");
 
 	// Inits
+	ESP_GOTO_ON_ERROR(esp_event_loop_create_default(), error, TAG, "systemInits:Failed to create default event loop");
+	ESP_GOTO_ON_ERROR(esp_event_handler_register(JS_EVENT_BASE, ESP_EVENT_ANY_ID, app_event_handler, NULL), error, TAG, "systemInits:Failed to register event handler");
 	ESP_GOTO_ON_ERROR(nvs_flash_init(), error, TAG, "systemInits:Failed to initialize NVS");
 	ESP_GOTO_ON_ERROR(js_serial_input_init(), error, TAG, "systemInits:Failed to initialize JS Serial Input");
 	return ESP_OK;
@@ -80,4 +85,31 @@ error:
 	return ret;
 }
 
-/*************************** Event Handlers ***************************/
+/*************************** Event Handler ***************************/
+static void app_event_handler(
+	void *arg,
+	esp_event_base_t base,
+	int32_t id,
+	void *data)
+{
+	printf("Event received: base=%s, id=%ld\n", base, id);
+
+	// Skip if not our event base
+	if (base != JS_EVENT_BASE)
+		return;
+
+	switch (id)
+	{
+	case JS_EVENT_GOTO_SLEEP:
+		ESP_LOGI(TAG, "Sleep command received");
+		break;
+
+	case JS_SET_TIME:
+		ESP_LOGI(TAG, "Set time command received with data: %s", (char *)data);
+		break;
+
+	default:
+		ESP_LOGW(TAG, "Unknown event ID: %ld", id);
+		break;
+	}
+}

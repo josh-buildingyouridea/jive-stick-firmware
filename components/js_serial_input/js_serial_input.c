@@ -12,7 +12,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
-#include "esp_sleep.h"
+// For calling events
+#include "esp_event.h"
+#include "js_events.h"
 
 // Defines
 #define TAG "js_serial_input"
@@ -66,10 +68,12 @@ static void serial_input_handler(void *arg)
 			{
 			case 't':
 				ESP_LOGI(TAG, "Time command received");
+				esp_event_post(JS_EVENT_BASE, JS_SET_TIME, line, strlen(line) + 1, 0);
 				break;
 
 			case 's':
 				ESP_LOGI(TAG, "Go to sleep command received");
+				esp_event_post(JS_EVENT_BASE, JS_EVENT_GOTO_SLEEP, line, strlen(line) + 1, 0);
 				break;
 
 			default:
