@@ -28,10 +28,12 @@ void app_main(void)
 	{
 		led_strip_set_pixel(led_strip, 0, 255, 0, 0); // Red
 		led_strip_refresh(led_strip);
+		printf("LED ON\n");
 		vTaskDelay(pdMS_TO_TICKS(500));
 
 		led_strip_clear(led_strip);
 		led_strip_refresh(led_strip);
+		printf("LED OFF\n");
 		vTaskDelay(pdMS_TO_TICKS(500));
 	}
 }

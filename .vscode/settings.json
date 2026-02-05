@@ -10,5 +10,6 @@
   "editor.formatOnSave": true,
   "files.associations": {
     "crush_wifi.h": "c"
-  }
+  },
+  "idf.currentSetup": "/Volumes/Data_Int/_Documents/ESP/_CODE/esp-idf"
 }

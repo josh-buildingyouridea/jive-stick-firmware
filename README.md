@@ -9,6 +9,7 @@ This repo contains the firmware for The Jive Stick. The required functionality i
 [ ] Buttons
 [ ] Bluetooth Settings
 [ ] Saving Audio Files
+[ ] Partition to allow OTA and other stuff...
 ```
 
 # Setup
@@ -17,6 +18,12 @@ This repo contains the firmware for The Jive Stick. The required functionality i
 
 ```
 gotoEspV5
+rm -rf jive-stick-firmware
+git clone git@github.com:josh-buildingyouridea/jive-stick-firmware.git
+cd jive-stick-firmare
+idf.py build flash monitor
+
+
 cd jive_stick
 code .
 . ../esp-idf-v5/export.sh
@@ -57,9 +64,15 @@ idf.py fullclean
 idf.py build
 ```
 
-### Use
+## Partitions
 
-### Set-up
+1. Create a partitions.csv file with 2x OTA slots and a storage slot.
+2. Menuconfig → Component config → Partition Table → Custom partition table CSV
+3. Set flash to 8MB: Menuconfig → Serial flasher config → Flash size → 8 MB
+
+- 1.5MB for main code
+- 1.5MB for OTA. Since there is no factory, the rollback will be to the last stable firmware
+- ~5MB (Remaining) space will be used for storage of Audio files.
 
 # OLD STUFF
 
