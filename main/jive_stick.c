@@ -12,6 +12,8 @@
 
 // Components Includes
 #include "js_leds.h"
+#include "js_sleep.h"
+#include "js_serial_input.h"
 
 // Defines
 #define TAG "main"
@@ -24,14 +26,17 @@ static esp_err_t componentInits(void);
 void app_main(void)
 {
 	// Print startup message
+	vTaskDelay(pdMS_TO_TICKS(1500));
 	printf("%s: Starting Jive Stick Firmware...\n", TAG);
 
 	// Inits
 	ESP_ERROR_CHECK(systemInits());
 	ESP_ERROR_CHECK(componentInits());
 
-	// *************** Temp ******************
+	// Handle Wake-Up Reason
+	js_sleep_handle_wakeup();
 
+	// *************** Temp ******************
 	while (1)
 	{
 		js_leds_set_color(10, 0, 0); // Red
@@ -54,6 +59,7 @@ static esp_err_t systemInits(void)
 
 	// Inits
 	ESP_GOTO_ON_ERROR(nvs_flash_init(), error, TAG, "systemInits:Failed to initialize NVS");
+	ESP_GOTO_ON_ERROR(js_serial_input_init(), error, TAG, "systemInits:Failed to initialize JS Serial Input");
 	return ESP_OK;
 
 error:

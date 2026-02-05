@@ -14,7 +14,7 @@ This repo contains the firmware for The Jive Stick. The required functionality i
 
 # Setup
 
-## SOD Setup
+## Start Of Day Setup
 
 ```
 gotoEspV5
@@ -73,6 +73,13 @@ idf.py build
 - 1.5MB for main code
 - 1.5MB for OTA. Since there is no factory, the rollback will be to the last stable firmware
 - ~5MB (Remaining) space will be used for storage of Audio files.
+
+## Debug/Set-Up Input
+
+In order to send the current timestamp, the device needs to be able to listen to serial inputs and handle them. This is also used for debugging during development.
+
+Map console output:  
+idf.py menuconfig → Component config → ESP System Settings → Channel for console output → USB Serial/JTAG Controller
 
 # OLD STUFF
 
