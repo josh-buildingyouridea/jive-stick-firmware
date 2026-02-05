@@ -3,13 +3,13 @@
 This repo contains the firmware for The Jive Stick. The required functionality is:
 
 ```
+[X] Partition to allow OTA and Audio Files
+[ ] LED Indication
 [ ] Manage battery controller
 [ ] Audio Playing
-[ ] LED Indication
 [ ] Buttons
 [ ] Bluetooth Settings
 [ ] Saving Audio Files
-[ ] Partition to allow OTA and other stuff...
 ```
 
 # Setup
