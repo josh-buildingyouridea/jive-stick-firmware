@@ -1,0 +1,7 @@
+# Build file
+build/
+managed_components/
+*.old
+
+# Added for ESP-IDF Project
+# .vscode/settings.json
