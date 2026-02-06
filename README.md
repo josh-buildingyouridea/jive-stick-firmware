@@ -11,7 +11,7 @@ This repo contains the firmware for The Jive Stick. The required functionality i
     [ ] Handle passing in the time
     [ ] Update the flash script to pass in the current time
 [X] Partition to allow OTA and Audio Files
-[ ] Saving Audio Files
+[X] Saving Audio Files
 [ ] Real Time Clock handler
 [ ] Sleep management
 [ ] Audio Playing

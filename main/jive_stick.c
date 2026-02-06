@@ -20,6 +20,7 @@
 #include "js_sleep.h"
 #include "js_serial_input.h"
 #include "js_buttons.h"
+#include "js_audio.h"
 
 // Defines
 #define TAG "main"
@@ -33,7 +34,7 @@ static void app_event_handler(void *arg, esp_event_base_t base, int32_t id, void
 void app_main(void)
 {
 	// Print startup message
-	vTaskDelay(pdMS_TO_TICKS(1500));
+	// vTaskDelay(pdMS_TO_TICKS(1500));
 	printf("%s: Starting Jive Stick Firmware...\n", TAG);
 
 	// Inits
@@ -99,6 +100,7 @@ static esp_err_t componentInits(void)
 	// Inits
 	ESP_GOTO_ON_ERROR(js_buttons_init(), error, TAG, "componentInits:Failed to initialize JS Buttons");
 	ESP_GOTO_ON_ERROR(js_leds_init(), error, TAG, "componentInits:Failed to initialize JS LEDs");
+	ESP_GOTO_ON_ERROR(js_audio_init(), error, TAG, "componentInits:Failed to initialize JS Audio");
 	return ESP_OK;
 
 error:
@@ -126,6 +128,11 @@ static void app_event_handler(
 
 	case JS_SET_TIME:
 		ESP_LOGI(TAG, "Set time command received with data: %s", (char *)data);
+		break;
+
+	case JS_EVENT_PLAY_AUDIO:
+		ESP_LOGI(TAG, "Play audio command received");
+		js_audio_play("/fs/FrElise_120s_16k_adpcm.wav");
 		break;
 
 	default:

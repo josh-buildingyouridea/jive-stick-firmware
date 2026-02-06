@@ -14,6 +14,9 @@
 #include "esp_log.h"
 #include "esp_check.h"
 #include "esp_timer.h"
+// For calling events
+#include "esp_event.h"
+#include "js_events.h"
 
 // Defines
 #define TAG "js_buttons"
@@ -199,6 +202,7 @@ static void button_press_handler(void *arg)
 			{
 			case BTN_RED:
 				ESP_LOGI(TAG, "RED button pressed: %s\n", event.is_long_press ? "LONG" : "SHORT");
+				esp_event_post(JS_EVENT_BASE, JS_EVENT_PLAY_AUDIO, NULL, 0, 0);
 				break;
 
 			case BTN_BLUE:
