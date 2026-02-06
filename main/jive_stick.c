@@ -8,8 +8,11 @@
 #include "esp_check.h"
 #include "esp_event.h"
 
+#include <dirent.h> // for reading files
+
 // Managed Components Includes
 // #include "led_strip.h"
+#include "esp_littlefs.h"
 
 // Components Includes
 #include "js_events.h"
@@ -41,6 +44,21 @@ void app_main(void)
 	js_sleep_handle_wakeup();
 
 	// *************** Temp ******************
+	esp_vfs_littlefs_conf_t conf = {
+		.base_path = "/fs",
+		.partition_label = "storage",
+		.format_if_mount_failed = false,
+	};
+	ESP_ERROR_CHECK(esp_vfs_littlefs_register(&conf));
+
+	DIR *dir = opendir("/fs");
+	struct dirent *entry;
+	while ((entry = readdir(dir)) != NULL)
+	{
+		printf("  - %s\n", entry->d_name);
+	}
+	closedir(dir);
+
 	while (1)
 	{
 		js_leds_set_color(10, 0, 0); // Red

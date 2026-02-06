@@ -3,13 +3,19 @@
 This repo contains the firmware for The Jive Stick. The required functionality is:
 
 ```
+[X] Set-up the repo with GIT and compnents structure
+[X] Create an event handler
+[X] Create a button handler
+[/] Serial Input
+    [ ] Serial Input component
+    [ ] Handle passing in the time
+    [ ] Update the flash script to pass in the current time
 [X] Partition to allow OTA and Audio Files
-[ ] LED Indication
-[ ] Manage battery controller
-[ ] Audio Playing
-[ ] Buttons
-[ ] Bluetooth Settings
 [ ] Saving Audio Files
+[ ] Real Time Clock handler
+[ ] Sleep management
+[ ] Audio Playing
+[ ] Bluetooth Settings
 ```
 
 # Setup
@@ -54,6 +60,10 @@ v5
 
 # Features
 
+## Button Input
+
+Created a button interrupts on each pin. It then triggers a button event to a local handler on release (short press) or when the long press timer is reached (long press). The local button press handler can then call the main handler as needed.
+
 ## Neopixel
 
 Add depencency:
@@ -73,6 +83,30 @@ idf.py build
 - 1.5MB for main code
 - 1.5MB for OTA. Since there is no factory, the rollback will be to the last stable firmware
 - ~5MB (Remaining) space will be used for storage of Audio files.
+
+## Audio
+
+### Creating a littlefs image and flashing to the device:
+
+Add the littlefs managed component:
+
+```
+idf.py add-dependency joltwallet/littlefs==1.20.4
+idf.py fullclean
+```
+
+Add `littlefs_create_partition_image(storage ../audio FLASH_IN_PROJECT)` to CMakeLists.txt in main to flash the audio files to the partition
+Create /audio folder and place the audio files in there.
+
+NOTE: Comment out the CMakeLists.txt file to make flashing quicker once those files are on the device.
+
+### Creating 2min audio files:
+
+https://archive.org/download/WoO59PocoMotoBagatelleInAMinorFurElise
+
+Download the MP3
+Convert to 2 minutes, mono, 16kHz, (WAV /codec stuff)
+`ffmpeg -i FrEliseWoo59.mp3 -t 120 -ac 1 -ar 16000 -c:a adpcm_ima_wav FrElise_120s_16k_adpcm.wav`
 
 ## Debug/Set-Up Input
 
