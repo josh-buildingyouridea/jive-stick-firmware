@@ -16,6 +16,7 @@
 #include "js_leds.h"
 #include "js_sleep.h"
 #include "js_serial_input.h"
+#include "js_buttons.h"
 
 // Defines
 #define TAG "main"
@@ -78,6 +79,7 @@ static esp_err_t componentInits(void)
 	ESP_LOGI(TAG, "componentInits starting...");
 
 	// Inits
+	ESP_GOTO_ON_ERROR(js_buttons_init(), error, TAG, "componentInits:Failed to initialize JS Buttons");
 	ESP_GOTO_ON_ERROR(js_leds_init(), error, TAG, "componentInits:Failed to initialize JS LEDs");
 	return ESP_OK;
 
