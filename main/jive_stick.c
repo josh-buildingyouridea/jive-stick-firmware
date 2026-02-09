@@ -130,7 +130,7 @@ static void app_event_handler(
 		ESP_LOGI(TAG, "Set time command received with data: %s", (char *)data);
 		break;
 
-	case JS_EVENT_PLAY_AUDIO:
+	case JS_EVENT_EMERGENCY_BUTTON_PRESSED:
 		ESP_LOGI(TAG, "Play audio command received");
 		js_audio_play("/fs/FrElise_120s_16k_adpcm.wav");
 		break;

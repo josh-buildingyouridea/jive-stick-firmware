@@ -20,12 +20,13 @@
 
 // Defines
 #define TAG "js_buttons"
-#define DEBOUNCE_TIME 50	 // ms
+#define DEBOUNCE_TIME 1		 // ms
 #define LONG_PRESS_TIME 1000 // ms
 
 #define BTN_RED GPIO_NUM_23
 #define BTN_BLUE GPIO_NUM_17
 #define BTN_YELLOW GPIO_NUM_16
+#define BTN_IS_PRESSED 0 // Active low
 static const uint32_t button_pins[] = {
 	GPIO_NUM_23,
 	GPIO_NUM_17,
@@ -33,27 +34,30 @@ static const uint32_t button_pins[] = {
 };
 #define BTN_COUNT (sizeof(button_pins) / sizeof(button_pins[0]))
 
+// Button event types
+typedef enum
+{
+	BUTTON_EVENT_PRESS,			// On press down
+	BUTTON_EVENT_LONG_PRESS,	// On long press timer
+	BUTTON_EVENT_RELEASE_SHORT, // On short press release
+	BUTTON_EVENT_RELEASE_LONG,	// On long press release
+} button_event_type_t;
+
 // Struct for the button state
 typedef struct
 {
 	uint32_t pin;
-	int64_t last_down_time; // Time when button last went LOW (pressed)
-	bool is_pressed;
+	int64_t press_start_time;	  // Time when button was first pressed
+	int64_t debounce_timeout_end; // Time when debounce period ends
+	bool was_pressed;
 	TimerHandle_t long_press_timer;
-} button_state_t;
-
-// Init button states
-static button_state_t button_states[BTN_COUNT] = {
-	{.pin = BTN_RED, .last_down_time = 0, .is_pressed = false, .long_press_timer = NULL},
-	{.pin = BTN_BLUE, .last_down_time = 0, .is_pressed = false, .long_press_timer = NULL},
-	{.pin = BTN_YELLOW, .last_down_time = 0, .is_pressed = false, .long_press_timer = NULL},
-};
+} button_props_t;
 
 // Struct to pass from ISR on button press
 typedef struct
 {
 	uint32_t pin;
-	bool is_long_press;
+	button_event_type_t type;
 } button_event_t;
 
 // Forward Declarations
@@ -61,6 +65,7 @@ static QueueHandle_t button_press_queue = NULL;
 static void button_press_handler(void *arg);
 static void button_isr(void *arg);
 static void long_press_timer_callback(TimerHandle_t xTimer);
+static button_props_t button_props[BTN_COUNT];
 
 /** Initialize button GPIOs, ISRs and handlers */
 esp_err_t js_buttons_init(void)
@@ -85,21 +90,21 @@ esp_err_t js_buttons_init(void)
 	};
 	ESP_GOTO_ON_ERROR(gpio_config(&btn_config), error, TAG, "js_buttons_init: Failed to configure GPIOs");
 
+	// Create the initial props for each button
+	for (int i = 0; i < BTN_COUNT; i++)
+	{
+		button_props[i].pin = button_pins[i];
+		button_props[i].press_start_time = 0;
+		button_props[i].debounce_timeout_end = 0;
+		button_props[i].was_pressed = false;
+		button_props[i].long_press_timer = NULL;
+	}
+
 	// Create long-press timers for each button
 	for (int i = 0; i < BTN_COUNT; i++)
 	{
-		button_states[i].long_press_timer = xTimerCreate(
-			"long_press_timer",
-			pdMS_TO_TICKS(LONG_PRESS_TIME),
-			pdFALSE,   // One-shot
-			(void *)i, // Timer ID = button index
-			long_press_timer_callback);
-		// Handle errors
-		if (button_states[i].long_press_timer == NULL)
-		{
-			ESP_LOGE(TAG, "js_buttons_init: Failed to create long-press timer for button %d", i);
-			ESP_GOTO_ON_ERROR(ESP_FAIL, error, TAG, "js_buttons_init: Failed to create long-press timer");
-		}
+		button_props[i].long_press_timer = xTimerCreate("long_press_timer", pdMS_TO_TICKS(LONG_PRESS_TIME), pdFALSE, (void *)i, long_press_timer_callback);
+		ESP_GOTO_ON_FALSE(button_props[i].long_press_timer != NULL, ESP_FAIL, error, TAG, "js_buttons_init: Failed to create long-press timer");
 	}
 
 	// Init the button press handler
@@ -111,7 +116,7 @@ esp_err_t js_buttons_init(void)
 	ESP_GOTO_ON_ERROR(gpio_install_isr_service(0), error, TAG, "js_buttons_init: Failed to install ISR service");
 	for (int i = 0; i < BTN_COUNT; i++)
 	{
-		// Pass in the button_pins index
+		// Pass in the button_props/button_pins index
 		ESP_GOTO_ON_ERROR(gpio_isr_handler_add(button_pins[i], button_isr, (void *)i), error, TAG, "js_buttons_init: Failed to add ISR handler for button");
 	}
 
@@ -126,65 +131,77 @@ error:
 static void long_press_timer_callback(TimerHandle_t xTimer)
 {
 	uint32_t btn_idx = (uint32_t)pvTimerGetTimerID(xTimer);
-	button_state_t *state = &button_states[btn_idx];
+	button_props_t *button_prop = &button_props[btn_idx];
 
-	// Only send event if button is still pressed
-	button_event_t event = {
-		.pin = state->pin,
-		.is_long_press = true};
+	// Don't send if already released
+	if (gpio_get_level(button_prop->pin) != BTN_IS_PRESSED)
+		return;
+
+	// Send the event
+	button_event_t event = {.pin = button_prop->pin, .type = BUTTON_EVENT_LONG_PRESS};
 	xQueueSend(button_press_queue, &event, 0);
-	// ESP_LOGI(TAG, "Long-press timer fired for button index %lu", btn_idx);
-
-	// Stop the timer and update the button state
-	xTimerStop(state->long_press_timer, 0);
-	state->is_pressed = false;
 }
 
 /** ISR for button presses */
 static void IRAM_ATTR button_isr(void *arg)
 {
+	button_event_type_t event_type; // Event type to send
+
 	// Get the button state object from the index
 	uint32_t btn_idx = (uint32_t)arg;
-	button_state_t *state = &button_states[btn_idx];
+	button_props_t *button_prop = &button_props[btn_idx];
 
 	// Get the current time
 	int64_t current_time = esp_timer_get_time() / 1000; // ms
 
-	if (gpio_get_level(state->pin) == 0)
+	// Check if we are in a debounce period
+	if (current_time < button_prop->debounce_timeout_end)
+		return; // Still in debounce period, ignore
+
+	// Set the debounce timeout
+	button_prop->debounce_timeout_end = current_time + DEBOUNCE_TIME;
+
+	// Check if the button is currently pressed
+	bool is_pressed = gpio_get_level(button_prop->pin) == BTN_IS_PRESSED;
+
+	// If the button state hasn't changed, ignore
+	if (is_pressed == button_prop->was_pressed)
+		return;
+
+	// Otherwise, update the button state
+	button_prop->was_pressed = is_pressed;
+
+	// If this is a new press
+	if (is_pressed)
 	{
-		// If already pressed, ignore
-		if (state->is_pressed == true)
-			return;
-
-		// Otherwise, record the press
-		state->last_down_time = current_time;
-		state->is_pressed = true;
-
 		// Start the long-press timer
-		xTimerStartFromISR(state->long_press_timer, NULL);
+		xTimerStartFromISR(button_prop->long_press_timer, NULL);
+
+		// Set the press start time
+		button_prop->press_start_time = current_time;
+
+		// Set the event type to send
+		event_type = BUTTON_EVENT_PRESS;
 	}
 	else
 	{
-		int64_t press_duration = current_time - state->last_down_time;
+		// On release, stop the long-press timer
+		xTimerStopFromISR(button_prop->long_press_timer, NULL);
 
-		// If less than the debounce time, ignore
-		if (press_duration < DEBOUNCE_TIME)
-			return;
-
-		// If long press, ignore since this is handled by the timer
-		if (press_duration >= LONG_PRESS_TIME)
-			return;
-
-		// Stop the long-press timer
-		xTimerStopFromISR(state->long_press_timer, NULL);
-
-		// Reset the button state
-		state->is_pressed = false;
-
-		// Send short press event only, long press is handled by the timer
-		button_event_t event = {.pin = state->pin, .is_long_press = false};
-		xQueueSendFromISR(button_press_queue, &event, NULL);
+		// Check if this was a short or long press
+		if (current_time - button_prop->press_start_time < LONG_PRESS_TIME)
+		{
+			event_type = BUTTON_EVENT_RELEASE_SHORT; // Short Press
+		}
+		else
+		{
+			event_type = BUTTON_EVENT_RELEASE_LONG; // Long Press
+		}
 	}
+
+	// Send short press event only, long press is handled by the timer
+	button_event_t event = {.pin = button_prop->pin, .type = event_type};
+	xQueueSendFromISR(button_press_queue, &event, NULL);
 }
 
 /** Handle button press events from the queue */
@@ -196,21 +213,43 @@ static void button_press_handler(void *arg)
 	{
 		if (xQueueReceive(button_press_queue, &event, portMAX_DELAY))
 		{
-			// printf("GPIO[%" PRIu32 "]: %s\n", event.pin, event.is_long_press ? "LONG" : "SHORT");
+			// printf("GPIO[%" PRIu32 "]: %d\n", event.pin, event.type);
 
 			switch (event.pin)
 			{
 			case BTN_RED:
-				ESP_LOGI(TAG, "RED button pressed: %s\n", event.is_long_press ? "LONG" : "SHORT");
-				esp_event_post(JS_EVENT_BASE, JS_EVENT_PLAY_AUDIO, NULL, 0, 0);
+				if (event.type == BUTTON_EVENT_RELEASE_SHORT)
+				{
+					ESP_LOGI(TAG, "RED button SHORT pressed");
+					// Send event to main task handler
+					esp_event_post(JS_EVENT_BASE, JS_EVENT_EMERGENCY_BUTTON_PRESSED, NULL, 0, 0);
+				}
+				if (event.type == BUTTON_EVENT_LONG_PRESS)
+				{
+					ESP_LOGI(TAG, "RED button LONG pressed");
+				}
 				break;
 
 			case BTN_BLUE:
-				ESP_LOGI(TAG, "BLUE button pressed: %s\n", event.is_long_press ? "LONG" : "SHORT");
+				if (event.type == BUTTON_EVENT_RELEASE_SHORT)
+				{
+					ESP_LOGI(TAG, "BLUE button SHORT pressed");
+				}
+				if (event.type == BUTTON_EVENT_LONG_PRESS)
+				{
+					ESP_LOGI(TAG, "BLUE button LONG pressed");
+				}
 				break;
 
 			case BTN_YELLOW:
-				ESP_LOGI(TAG, "YELLOW button pressed: %s\n", event.is_long_press ? "LONG" : "SHORT");
+				if (event.type == BUTTON_EVENT_RELEASE_SHORT)
+				{
+					ESP_LOGI(TAG, "YELLOW button SHORT pressed");
+				}
+				if (event.type == BUTTON_EVENT_LONG_PRESS)
+				{
+					ESP_LOGI(TAG, "YELLOW button LONG pressed");
+				}
 				break;
 
 			default:

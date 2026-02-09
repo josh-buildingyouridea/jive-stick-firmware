@@ -12,6 +12,7 @@ typedef enum
 	JS_SET_TIME,
 
 	// Audio Events
+	JS_EVENT_EMERGENCY_BUTTON_PRESSED,
 	JS_EVENT_PLAY_AUDIO,
 	JS_EVENT_STOP_AUDIO,
 } app_event_id_t;
