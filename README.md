@@ -95,18 +95,37 @@ idf.py add-dependency joltwallet/littlefs==1.20.4
 idf.py fullclean
 ```
 
-Add `littlefs_create_partition_image(storage ../audio FLASH_IN_PROJECT)` to CMakeLists.txt in main to flash the audio files to the partition
-Create /audio folder and place the audio files in there.
-
+Create [/audio](audio) folder and place the audio files in there.  
+Add `littlefs_create_partition_image(storage ../audio FLASH_IN_PROJECT)` to CMakeLists.txt in main to flash the audio files to the partition.
 NOTE: Comment out the CMakeLists.txt file to make flashing quicker once those files are on the device.
 
 ### Creating 2min audio files:
 
-https://archive.org/download/WoO59PocoMotoBagatelleInAMinorFurElise
+Downloads:
+
+- [Fur Elise](https://archive.org/download/WoO59PocoMotoBagatelleInAMinorFurElise)
+- [Beethoven - Symphony No. 5 in C Minor](https://freesound.org/people/GregorQuendel/sounds/719388/)
 
 Download the MP3
 Convert to 2 minutes, mono, 16kHz, (WAV /codec stuff)
-`ffmpeg -i FrEliseWoo59.mp3 -t 120 -ac 1 -ar 16000 -c:a adpcm_ima_wav FrElise_120s_16k_adpcm.wav`
+
+```
+ffmpeg -ss 00:00:01 -i FrEliseWoo59.mp3 \
+  -t 120 -ac 1 -ar 16000 \
+  -c:a adpcm_ima_wav -f wav \
+  FrEliseWoo59_120s_16k_adpcm_01.wav
+```
+
+### Creating Custom Audio Files
+
+say -v "Samantha (Enhanced)" "I need help. Please help" -o help.aiff
+
+```
+ffmpeg -i help.aiff \
+  -af "volume=-6dB" -ac 1 -ar 16000 \
+  -c:a adpcm_ima_wav -f wav \
+  help_16k_adpcm_6db.wav
+```
 
 ## Debug/Set-Up Input
 

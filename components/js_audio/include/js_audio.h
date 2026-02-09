@@ -5,4 +5,4 @@
 
 // Functions
 esp_err_t js_audio_init(void);
-void js_audio_play(const char *path);
+void js_audio_play_pause(const char *path);
