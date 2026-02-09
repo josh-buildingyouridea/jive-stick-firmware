@@ -22,6 +22,8 @@ typedef struct
 } ima_state_t;
 
 // Forward Declarations
+static bool _is_playing = false;
+static bool _stop_requested = false;
 static i2s_chan_handle_t tx_chan;
 static int16_t ima_decode_nibble(uint8_t nibble, ima_state_t *st);
 static void skip_wav_header(FILE *f);
@@ -65,10 +67,21 @@ error:
 
 /* ************************** Global Functions ************************** */
 /** Play the audio file with passed in path */
-void js_audio_play(const char *path)
+void js_audio_play_pause(const char *path)
 {
-	ESP_LOGI(TAG, "Starting audio play task for file: %s", path);
-	xTaskCreate(audio_play_task, "audio_play_task", 4096, (void *)path, 10, NULL);
+	if (_is_playing)
+	{
+		ESP_LOGI(TAG, "Stopping audio playback");
+		_is_playing = false;
+		_stop_requested = true;
+	}
+	else
+	{
+		ESP_LOGI(TAG, "Starting audio play task for file: %s", path);
+		_is_playing = true;
+		_stop_requested = false;
+		xTaskCreate(audio_play_task, "audio_play_task", 4096, (void *)path, 10, NULL);
+	}
 }
 
 static void audio_play_task(void *arg)
@@ -80,8 +93,7 @@ static void audio_play_task(void *arg)
 	if (!f)
 	{
 		ESP_LOGE("AUDIO", "Failed to open file: %s", path);
-		vTaskDelete(NULL);
-		return;
+		goto cleanup;
 	}
 	// Check file size before and after header skip
 	fseek(f, 0, SEEK_END);
@@ -101,6 +113,12 @@ static void audio_play_task(void *arg)
 
 	while ((bytes = fread(in, 1, sizeof(in), f)) > 0)
 	{
+		if (_stop_requested)
+		{
+			ESP_LOGI(TAG, "Audio playback stopped");
+			break;
+		}
+
 		int out_samples = 0;
 
 		for (size_t i = 0; i < bytes; i++)
@@ -117,14 +135,18 @@ static void audio_play_task(void *arg)
 			&written,
 			portMAX_DELAY);
 	}
-
 	ESP_LOGI(TAG, "Finished playing audio file: %s", path);
+
+cleanup:
+
+	_stop_requested = false;
+	_is_playing = false;
 	fclose(f);
 	vTaskDelete(NULL); // Delete self when done
 }
 
 /* ********************* Local I2S/Audio Codex Functions ********************* */
-static const int step_table[89] = {
+static const int step_table[] = {
 	7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31,
 	34, 37, 41, 45, 50, 55, 60, 66, 73, 80, 88, 97, 107, 118,
 	130, 143, 157, 173, 190, 209, 230, 253, 279, 307, 337,
@@ -135,7 +157,7 @@ static const int step_table[89] = {
 	12635, 13899, 15289, 16818, 18500, 20350, 22385,
 	24623, 27086, 29794, 32767};
 
-static const int index_table[16] = {
+static const int index_table[] = {
 	-1, -1, -1, -1, 2, 4, 6, 8,
 	-1, -1, -1, -1, 2, 4, 6, 8};
 

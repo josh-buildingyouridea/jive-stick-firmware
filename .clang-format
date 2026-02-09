@@ -1,0 +1,13 @@
+# Base style so we don't have to define everything
+BasedOnStyle: LLVM
+
+# Use 4-space indentation (not LLVM's default 2)
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+# Keep short one-line ifs readable
+AllowShortIfStatementsOnASingleLine: WithoutElse
+
+# No Column Limit
+ColumnLimit: 0
