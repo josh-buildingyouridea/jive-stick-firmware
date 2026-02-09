@@ -105,6 +105,9 @@ Downloads:
 
 - [Fur Elise](https://archive.org/download/WoO59PocoMotoBagatelleInAMinorFurElise)
 - [Beethoven - Symphony No. 5 in C Minor](https://freesound.org/people/GregorQuendel/sounds/719388/)
+- [The Young Rascals - Groovin](https://www.youtube.com/watch?v=4JIq8Zn0AJE)
+- [Old Time Rock and Roll - Bob Seger ](https://www.youtube.com/watch?v=W1LsRShUPtY)
+- For the last 2 I used [tubeRipper](https://tuberipper.net/73/) These will need to be replaced before production.
 
 Download the MP3
 Convert to 2 minutes, mono, 16kHz, (WAV /codec stuff)

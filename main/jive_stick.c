@@ -121,12 +121,12 @@ static void app_event_handler(void *arg, esp_event_base_t base, int32_t id,
 
     case JS_EVENT_PLAY_AUDIO:
         ESP_LOGI(TAG, "Play audio command received");
-        js_audio_play_pause("/fs/BeethovenNo5_3s_16k_adpcm_00.wav");
+        js_audio_play_pause("/fs/Groovin_120s_16k_adpcm_3db.wav");
         break;
 
     case JS_EVENT_EMERGENCY_BUTTON_PRESSED:
         ESP_LOGI(TAG, "Emergency button pressed");
-        js_audio_play_pause("/fs/help_16k_adpcm_6db.wav");
+        js_audio_play_pause("/fs/OldTimeRockAndRoll_120s_16k_adpcm_6db.wav");
         break;
 
     default:
