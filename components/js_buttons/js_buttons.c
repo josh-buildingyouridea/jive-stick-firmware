@@ -213,10 +213,11 @@ static void button_press_handler(void *arg) {
             case BTN_BLUE:
                 if (event.type == BUTTON_EVENT_RELEASE_SHORT) {
                     ESP_LOGI(TAG, "BLUE button SHORT pressed");
-                    esp_event_post(JS_EVENT_BASE, JS_EVENT_PLAY_AUDIO, NULL, 0, 0);
+                    esp_event_post(JS_EVENT_BASE, JS_EVENT_START_PAIRING, NULL, 0, 0);
                 }
                 if (event.type == BUTTON_EVENT_LONG_PRESS) {
                     ESP_LOGI(TAG, "BLUE button LONG pressed");
+                    esp_event_post(JS_EVENT_BASE, JS_EVENT_STOP_BLE, NULL, 0, 0);
                 }
                 break;
 

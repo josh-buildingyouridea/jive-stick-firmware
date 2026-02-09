@@ -12,5 +12,5 @@
     "crush_wifi.h": "c"
   },
   "idf.currentSetup": "/Volumes/Data_Int/_Documents/ESP/_CODE/esp-idf",
-  "idf.port": "/dev/tty.usbmodem1142401"
+  "idf.port": "/dev/tty.usbmodem114401"
 }

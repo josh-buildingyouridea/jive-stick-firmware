@@ -5,14 +5,19 @@
 ESP_EVENT_DECLARE_BASE(JS_EVENT_BASE); // Main handler
 
 // Define the events for the event handler
-typedef enum
-{
-	// System Events
-	JS_EVENT_GOTO_SLEEP,
-	JS_SET_TIME,
+typedef enum {
+    // System Events
+    JS_EVENT_GOTO_SLEEP,
+    JS_SET_TIME,
 
-	// Audio Events
-	JS_EVENT_EMERGENCY_BUTTON_PRESSED,
-	JS_EVENT_PLAY_AUDIO,
-	JS_EVENT_STOP_AUDIO,
+    // Audio Events
+    JS_EVENT_EMERGENCY_BUTTON_PRESSED,
+    JS_EVENT_PLAY_AUDIO,
+    JS_EVENT_STOP_AUDIO,
+
+    // BLE Events
+    JS_EVENT_START_PAIRING,
+    JS_EVENT_STOP_BLE,
+    JS_EVENT_BLE_CONNECTED,
+    JS_EVENT_BLE_DISCONNECTED,
 } app_event_id_t;

@@ -16,6 +16,7 @@
 
 // Components Includes
 #include "js_audio.h"
+#include "js_ble.h"
 #include "js_buttons.h"
 #include "js_events.h"
 #include "js_leds.h"
@@ -96,6 +97,8 @@ static esp_err_t componentInits(void) {
     ESP_GOTO_ON_ERROR(js_buttons_init(), error, TAG, "componentInits:Failed to initialize JS Buttons");
     ESP_GOTO_ON_ERROR(js_leds_init(), error, TAG, "componentInits:Failed to initialize JS LEDs");
     ESP_GOTO_ON_ERROR(js_audio_init(), error, TAG, "componentInits:Failed to initialize JS Audio");
+    ESP_GOTO_ON_ERROR(js_ble_init(), error, TAG, "componentInits:Failed to initialize JS BLE");
+
     return ESP_OK;
 
 error:
@@ -119,6 +122,7 @@ static void app_event_handler(void *arg, esp_event_base_t base, int32_t id,
         ESP_LOGI(TAG, "Set time command received with data: %s", (char *)data);
         break;
 
+    // AUDIO.....
     case JS_EVENT_PLAY_AUDIO:
         ESP_LOGI(TAG, "Play audio command received");
         js_audio_play_pause("/fs/Groovin_120s_16k_adpcm_3db.wav");
@@ -127,6 +131,17 @@ static void app_event_handler(void *arg, esp_event_base_t base, int32_t id,
     case JS_EVENT_EMERGENCY_BUTTON_PRESSED:
         ESP_LOGI(TAG, "Emergency button pressed");
         js_audio_play_pause("/fs/OldTimeRockAndRoll_120s_16k_adpcm_6db.wav");
+        break;
+
+    // BLE.....
+    case JS_EVENT_START_PAIRING:
+        ESP_LOGI(TAG, "JS_EVENT_START_PAIRING command received");
+        js_ble_set_state(BLE_STATE_CONNECTED);
+        break;
+
+    case JS_EVENT_STOP_BLE:
+        ESP_LOGI(TAG, "JS_EVENT_STOP_BLE command received");
+        js_ble_set_state(BLE_STATE_DISCONNECTED);
         break;
 
     default:
