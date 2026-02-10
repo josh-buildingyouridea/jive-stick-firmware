@@ -10,17 +10,19 @@
 #include <stdio.h>
 
 // Local Includes
+#include "js_adc.h"
 #include "js_leds.h"
 
 // Defines
 #define TAG "js_battery"
 #define PIN_PWR_IN GPIO_NUM_3
+#define BRIGHTNESS 10
 
 // Forward Declarations
 static void input_pin_isr(void *arg);
 static void show_battery_state_task(void *arg);
-static bool _show_battery_state = false;
-static js_battery_state_t battery_state = JS_BATTERY_STATE_UNKNOWN;
+static bool _show_battery_state = true;
+static void show_battery_voltage(void);
 
 /** Initialize JS Battery
  * Init the pins and code for the battery monitoring
@@ -52,47 +54,75 @@ error:
 }
 
 /* ************************** Global Functions ************************** */
-// Get the current battery state
-js_battery_state_t js_battery_get_state(void) {
-    return battery_state;
+void js_set_show_battery_state(bool show) {
+    _show_battery_state = show;
 }
 
 /* ************************** Local Functions ************************** */
 // Input Pin ISR
 static void input_pin_isr(void *arg) {
+    _show_battery_state = true;
+
     // Read the pin state
-    if (gpio_get_level(PIN_PWR_IN)) {
-        // ESP_LOGI(TAG, "Battery is charging");
-        battery_state = JS_BATTERY_STATE_CHARGING;
-    } else {
-        // ESP_LOGI(TAG, "Battery is discharging");
-        battery_state = JS_BATTERY_STATE_DISCHARGING;
-    }
+    // if (gpio_get_level(PIN_PWR_IN)) {
+    //     // ESP_LOGI(TAG, "Battery is charging");
+    //     _battery_charger_state = JS_BATTERY_CHARGER_STATE_CHARGING;
+    // } else {
+    //     // ESP_LOGI(TAG, "Battery is discharging");
+    //     _battery_charger_state = JS_BATTERY_CHARGER_STATE_DISCHARGING;
+    // }
 }
 
 // Show the battery state task
 static void show_battery_state_task(void *arg) {
     // Set the inital battery state
-    battery_state = gpio_get_level(PIN_PWR_IN) ? JS_BATTERY_STATE_CHARGING : JS_BATTERY_STATE_DISCHARGING;
+    // battery_state = gpio_get_level(PIN_PWR_IN) ? JS_BATTERY_STATE_CHARGING : JS_BATTERY_STATE_DISCHARGING;
+    bool is_charging = gpio_get_level(PIN_PWR_IN);
+    bool LED_was_on = false;
+    int show_battery_timeout_counter = 0;
 
     for (;;) {
-        switch (battery_state) {
-        case JS_BATTERY_STATE_CHARGING:
-            // ESP_LOGI(TAG, "Battery is charging");
-            break;
-        case JS_BATTERY_STATE_DISCHARGING:
-            // ESP_LOGI(TAG, "Battery is discharging");
-            if (_show_battery_state) {
-                // TODO: Read battery voltage
-                js_leds_set_color(10, 10, 0);
-            } else {
-                js_leds_clear();
-            }
-            break;
-        default:
-            // ESP_LOGI(TAG, "Battery state unknown");
-            break;
-        }
+        // Delay for blinking and to avoid spamming logs
         vTaskDelay(pdMS_TO_TICKS(500));
+
+        // If we shouldn't show the battery state, just clear LEDs and skip
+        if (!_show_battery_state) {
+            js_leds_clear();
+            continue;
+        }
+
+        // Check the charging state and update LEDs accordingly
+        is_charging = gpio_get_level(PIN_PWR_IN);
+
+        // If not charging
+        if (!is_charging) {
+            // Show the battery voltage
+            show_battery_voltage();
+            if (show_battery_timeout_counter++ > 10) { // After 5 seconds, stop showing the battery state to save power
+                _show_battery_state = false;
+                show_battery_timeout_counter = 0;
+            }
+            continue;
+        }
+
+        if (!LED_was_on) {
+            show_battery_voltage();
+            LED_was_on = true;
+        } else {
+            js_leds_clear();
+            LED_was_on = false;
+        }
+    }
+}
+
+static void show_battery_voltage() {
+    int voltage = js_adc_battery_voltage();
+    // ESP_LOGI(TAG, "Battery Voltage: %d mV", voltage);
+    if (voltage > 4100) {
+        js_leds_set_color(0, BRIGHTNESS, 0); // Green for full
+    } else if (voltage > 3700) {
+        js_leds_set_color(BRIGHTNESS, BRIGHTNESS, 0); // Yellow for medium
+    } else {
+        js_leds_set_color(BRIGHTNESS, 0, 0); // Red for low
     }
 }

@@ -94,11 +94,11 @@ static esp_err_t componentInits(void) {
     ESP_LOGI(TAG, "componentInits starting...");
 
     // Inits
-    ESP_GOTO_ON_ERROR(js_buttons_init(), error, TAG, "componentInits:Failed to initialize JS Buttons");
-    ESP_GOTO_ON_ERROR(js_battery_init(), error, TAG, "componentInits:Failed to initialize JS Battery");
-    ESP_GOTO_ON_ERROR(js_leds_init(), error, TAG, "componentInits:Failed to initialize JS LEDs");
-    ESP_GOTO_ON_ERROR(js_audio_init(), error, TAG, "componentInits:Failed to initialize JS Audio");
-    ESP_GOTO_ON_ERROR(js_ble_init(), error, TAG, "componentInits:Failed to initialize JS BLE");
+    ESP_GOTO_ON_ERROR(js_leds_init(), error, TAG, "componentInits: Failed to initialize JS LEDs");
+    ESP_GOTO_ON_ERROR(js_buttons_init(), error, TAG, "componentInits: Failed to initialize JS Buttons");
+    ESP_GOTO_ON_ERROR(js_battery_init(), error, TAG, "componentInits: Failed to initialize JS Battery");
+    ESP_GOTO_ON_ERROR(js_audio_init(), error, TAG, "componentInits: Failed to initialize JS Audio");
+    ESP_GOTO_ON_ERROR(js_ble_init(), error, TAG, "componentInits: Failed to initialize JS BLE");
 
     return ESP_OK;
 
@@ -148,12 +148,12 @@ static void app_event_handler(void *arg, esp_event_base_t base, int32_t id,
     // Battery.....
     case JS_EVENT_SHOW_BATTERY_STATUS:
         ESP_LOGI(TAG, "JS_EVENT_SHOW_BATTERY_STATUS command received");
-        int voltage = js_adc_battery_voltage();
-        ESP_LOGW(TAG, "Initial battery voltage: %d mV", voltage);
+        js_set_show_battery_state(true);
         break;
 
     case JS_EVENT_HIDE_BATTERY_STATUS:
         ESP_LOGI(TAG, "JS_EVENT_HIDE_BATTERY_STATUS command received");
+        js_set_show_battery_state(false);
         break;
 
     default:

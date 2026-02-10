@@ -64,7 +64,7 @@ error:
 // Get the current battery state
 int js_adc_battery_voltage() {
     int reading = read_pin(adc1_handle, PIN_BATTERY_READ, battery_read_cal_handle, 3);
-    ESP_LOGI(TAG, "Battery Voltage: %d mV", reading);
+    // ESP_LOGI(TAG, "Battery Voltage: %d mV", reading);
     return reading * 2; // Scale the reading by 2 because of the voltage divider
 }
 
