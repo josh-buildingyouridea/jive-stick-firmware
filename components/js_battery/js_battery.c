@@ -78,10 +78,10 @@ static void show_battery_state_task(void *arg) {
     for (;;) {
         switch (battery_state) {
         case JS_BATTERY_STATE_CHARGING:
-            ESP_LOGI(TAG, "Battery is charging");
+            // ESP_LOGI(TAG, "Battery is charging");
             break;
         case JS_BATTERY_STATE_DISCHARGING:
-            ESP_LOGI(TAG, "Battery is discharging");
+            // ESP_LOGI(TAG, "Battery is discharging");
             if (_show_battery_state) {
                 // TODO: Read battery voltage
                 js_leds_set_color(10, 10, 0);
@@ -90,7 +90,7 @@ static void show_battery_state_task(void *arg) {
             }
             break;
         default:
-            ESP_LOGI(TAG, "Battery state unknown");
+            // ESP_LOGI(TAG, "Battery state unknown");
             break;
         }
         vTaskDelay(pdMS_TO_TICKS(500));

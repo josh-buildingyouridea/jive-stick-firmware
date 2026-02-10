@@ -15,6 +15,10 @@ typedef enum {
     JS_EVENT_PLAY_AUDIO,
     JS_EVENT_STOP_AUDIO,
 
+    // Battery Events
+    JS_EVENT_SHOW_BATTERY_STATUS,
+    JS_EVENT_HIDE_BATTERY_STATUS,
+
     // BLE Events
     JS_EVENT_START_PAIRING,
     JS_EVENT_STOP_BLE,

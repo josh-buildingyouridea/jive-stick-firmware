@@ -223,9 +223,11 @@ static void button_press_handler(void *arg) {
             case BTN_YELLOW:
                 if (event.type == BUTTON_EVENT_RELEASE_SHORT) {
                     ESP_LOGI(TAG, "YELLOW button SHORT pressed");
+                    esp_event_post(JS_EVENT_BASE, JS_EVENT_SHOW_BATTERY_STATUS, NULL, 0, 0);
                 }
                 if (event.type == BUTTON_EVENT_LONG_PRESS) {
                     ESP_LOGI(TAG, "YELLOW button LONG pressed");
+                    esp_event_post(JS_EVENT_BASE, JS_EVENT_HIDE_BATTERY_STATUS, NULL, 0, 0);
                 }
                 break;
 

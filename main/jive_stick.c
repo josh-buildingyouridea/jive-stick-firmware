@@ -16,6 +16,7 @@
 #include "esp_littlefs.h"
 
 // Components Includes
+#include "js_adc.h"
 #include "js_audio.h"
 #include "js_battery.h"
 #include "js_ble.h"
@@ -75,10 +76,11 @@ static esp_err_t systemInits(void) {
     ESP_LOGI(TAG, "systemInits starting...");
 
     // Inits
+    ESP_GOTO_ON_ERROR(nvs_flash_init(), error, TAG, "systemInits: Failed to initialize NVS");
     ESP_GOTO_ON_ERROR(gpio_install_isr_service(0), error, TAG, "systemInits: Failed to install ISR service");
+    ESP_GOTO_ON_ERROR(js_adc_init(), error, TAG, "systemInits: Failed to initialize JS ADC");
     ESP_GOTO_ON_ERROR(esp_event_loop_create_default(), error, TAG, "systemInits:Failed to create default event loop");
     ESP_GOTO_ON_ERROR(esp_event_handler_register(JS_EVENT_BASE, ESP_EVENT_ANY_ID, app_event_handler, NULL), error, TAG, "systemInits:Failed to register event handler");
-    ESP_GOTO_ON_ERROR(nvs_flash_init(), error, TAG, "systemInits: Failed to initialize NVS");
     ESP_GOTO_ON_ERROR(js_serial_input_init(), error, TAG, "systemInits: Failed to initialize JS Serial Input");
     return ESP_OK;
 
@@ -141,6 +143,17 @@ static void app_event_handler(void *arg, esp_event_base_t base, int32_t id,
     case JS_EVENT_STOP_BLE:
         ESP_LOGI(TAG, "JS_EVENT_STOP_BLE command received");
         js_ble_set_state(BLE_STATE_DISCONNECTED);
+        break;
+
+    // Battery.....
+    case JS_EVENT_SHOW_BATTERY_STATUS:
+        ESP_LOGI(TAG, "JS_EVENT_SHOW_BATTERY_STATUS command received");
+        int voltage = js_adc_battery_voltage();
+        ESP_LOGW(TAG, "Initial battery voltage: %d mV", voltage);
+        break;
+
+    case JS_EVENT_HIDE_BATTERY_STATUS:
+        ESP_LOGI(TAG, "JS_EVENT_HIDE_BATTERY_STATUS command received");
         break;
 
     default:
