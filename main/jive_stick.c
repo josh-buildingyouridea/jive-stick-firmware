@@ -1,4 +1,5 @@
 // Library Includes
+#include "driver/gpio.h"
 #include "esp_check.h"
 #include "esp_err.h"
 #include "esp_event.h"
@@ -16,6 +17,7 @@
 
 // Components Includes
 #include "js_audio.h"
+#include "js_battery.h"
 #include "js_ble.h"
 #include "js_buttons.h"
 #include "js_events.h"
@@ -59,13 +61,8 @@ void app_main(void) {
     }
     closedir(dir);
 
+    // Run the app
     while (1) {
-        js_leds_set_color(10, 0, 0); // Red
-        // printf("LED ON\n");
-        vTaskDelay(pdMS_TO_TICKS(500));
-
-        js_leds_clear();
-        // printf("LED OFF\n");
         vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
@@ -78,10 +75,11 @@ static esp_err_t systemInits(void) {
     ESP_LOGI(TAG, "systemInits starting...");
 
     // Inits
+    ESP_GOTO_ON_ERROR(gpio_install_isr_service(0), error, TAG, "systemInits: Failed to install ISR service");
     ESP_GOTO_ON_ERROR(esp_event_loop_create_default(), error, TAG, "systemInits:Failed to create default event loop");
     ESP_GOTO_ON_ERROR(esp_event_handler_register(JS_EVENT_BASE, ESP_EVENT_ANY_ID, app_event_handler, NULL), error, TAG, "systemInits:Failed to register event handler");
-    ESP_GOTO_ON_ERROR(nvs_flash_init(), error, TAG, "systemInits:Failed to initialize NVS");
-    ESP_GOTO_ON_ERROR(js_serial_input_init(), error, TAG, "systemInits:Failed to initialize JS Serial Input");
+    ESP_GOTO_ON_ERROR(nvs_flash_init(), error, TAG, "systemInits: Failed to initialize NVS");
+    ESP_GOTO_ON_ERROR(js_serial_input_init(), error, TAG, "systemInits: Failed to initialize JS Serial Input");
     return ESP_OK;
 
 error:
@@ -95,6 +93,7 @@ static esp_err_t componentInits(void) {
 
     // Inits
     ESP_GOTO_ON_ERROR(js_buttons_init(), error, TAG, "componentInits:Failed to initialize JS Buttons");
+    ESP_GOTO_ON_ERROR(js_battery_init(), error, TAG, "componentInits:Failed to initialize JS Battery");
     ESP_GOTO_ON_ERROR(js_leds_init(), error, TAG, "componentInits:Failed to initialize JS LEDs");
     ESP_GOTO_ON_ERROR(js_audio_init(), error, TAG, "componentInits:Failed to initialize JS Audio");
     ESP_GOTO_ON_ERROR(js_ble_init(), error, TAG, "componentInits:Failed to initialize JS BLE");

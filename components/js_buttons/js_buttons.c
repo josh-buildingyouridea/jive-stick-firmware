@@ -108,7 +108,6 @@ esp_err_t js_buttons_init(void) {
     xTaskCreate(button_press_handler, "button_press_handler", 2048, NULL, 10, NULL);
 
     // Install GPIO ISR service
-    ESP_GOTO_ON_ERROR(gpio_install_isr_service(0), error, TAG, "js_buttons_init: Failed to install ISR service");
     for (int i = 0; i < BTN_COUNT; i++) {
         // Pass in the button_props/button_pins index
         ESP_GOTO_ON_ERROR(gpio_isr_handler_add(button_pins[i], button_isr, (void *)i), error, TAG, "js_buttons_init: Failed to add ISR handler for button");
