@@ -8,7 +8,6 @@ ESP_EVENT_DECLARE_BASE(JS_EVENT_BASE); // Main handler
 typedef enum {
     // System Events
     JS_EVENT_GOTO_SLEEP,
-    JS_SET_TIME,
 
     // Audio Events
     JS_EVENT_EMERGENCY_BUTTON_PRESSED,
@@ -18,6 +17,10 @@ typedef enum {
     // Battery Events
     JS_EVENT_SHOW_BATTERY_STATUS,
     JS_EVENT_HIDE_BATTERY_STATUS,
+
+    // Time Events
+    JS_SET_TIME,
+    JS_READ_TIME,
 
     // BLE Events
     JS_EVENT_START_PAIRING,

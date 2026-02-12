@@ -22,9 +22,11 @@
 #include "js_ble.h"
 #include "js_buttons.h"
 #include "js_events.h"
+#include "js_i2c.h"
 #include "js_leds.h"
 #include "js_serial_input.h"
 #include "js_sleep.h"
+#include "js_time.h"
 
 // Defines
 #define TAG "main"
@@ -62,6 +64,8 @@ void app_main(void) {
     }
     closedir(dir);
 
+    // *************** Temp END ******************
+
     // Run the app
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(500));
@@ -79,6 +83,7 @@ static esp_err_t systemInits(void) {
     ESP_GOTO_ON_ERROR(nvs_flash_init(), error, TAG, "systemInits: Failed to initialize NVS");
     ESP_GOTO_ON_ERROR(gpio_install_isr_service(0), error, TAG, "systemInits: Failed to install ISR service");
     ESP_GOTO_ON_ERROR(js_adc_init(), error, TAG, "systemInits: Failed to initialize JS ADC");
+    ESP_GOTO_ON_ERROR(js_i2c_init(), error, TAG, "systemInits: Failed to initialize JS I2C");
     ESP_GOTO_ON_ERROR(esp_event_loop_create_default(), error, TAG, "systemInits:Failed to create default event loop");
     ESP_GOTO_ON_ERROR(esp_event_handler_register(JS_EVENT_BASE, ESP_EVENT_ANY_ID, app_event_handler, NULL), error, TAG, "systemInits:Failed to register event handler");
     ESP_GOTO_ON_ERROR(js_serial_input_init(), error, TAG, "systemInits: Failed to initialize JS Serial Input");
@@ -99,7 +104,7 @@ static esp_err_t componentInits(void) {
     ESP_GOTO_ON_ERROR(js_battery_init(), error, TAG, "componentInits: Failed to initialize JS Battery");
     ESP_GOTO_ON_ERROR(js_audio_init(), error, TAG, "componentInits: Failed to initialize JS Audio");
     ESP_GOTO_ON_ERROR(js_ble_init(), error, TAG, "componentInits: Failed to initialize JS BLE");
-
+    ESP_GOTO_ON_ERROR(js_time_init(), error, TAG, "componentInits: Failed to initialize JS RTC");
     return ESP_OK;
 
 error:
@@ -119,8 +124,23 @@ static void app_event_handler(void *arg, esp_event_base_t base, int32_t id,
         ESP_LOGI(TAG, "Sleep command received");
         break;
 
+    case JS_READ_TIME:
+        ESP_LOGI(TAG, "Read time command received");
+        uint64_t unix_time;
+        if (js_time_read_rtc(&unix_time) == ESP_OK) {
+            ESP_LOGI(TAG, "Current RTC Unix Time: %lld", unix_time);
+            js_time_read_sys();
+        } else {
+            ESP_LOGE(TAG, "Failed to read time from RTC");
+        }
+        break;
+
     case JS_SET_TIME:
+        // Will look like: t:1770915796
         ESP_LOGI(TAG, "Set time command received with data: %s", (char *)data);
+        uint64_t new_time = strtoull((char *)data + 2, NULL, 10);
+        printf("Parsed new time: %lld\n", new_time);
+        js_time_set(new_time);
         break;
 
     // AUDIO.....

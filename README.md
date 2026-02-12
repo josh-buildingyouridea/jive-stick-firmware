@@ -112,7 +112,7 @@ Downloads:
 Download the MP3
 Convert to 2 minutes, mono, 16kHz, (WAV /codec stuff)
 
-```
+```zsh
 ffmpeg -ss 00:00:01 -i FrEliseWoo59.mp3 \
   -t 120 -ac 1 -ar 16000 \
   -c:a adpcm_ima_wav -f wav \
@@ -123,7 +123,7 @@ ffmpeg -ss 00:00:01 -i FrEliseWoo59.mp3 \
 
 say -v "Samantha (Enhanced)" "I need help. Please help" -o help.aiff
 
-```
+```zsh
 ffmpeg -i help.aiff \
   -af "volume=-6dB" -ac 1 -ar 16000 \
   -c:a adpcm_ima_wav -f wav \
@@ -137,6 +137,22 @@ In order to send the current timestamp, the device needs to be able to listen to
 Map console output:  
 idf.py menuconfig → Component config → ESP System Settings → Channel for console output → USB Serial/JTAG Controller
 
+## Time
+
+- This system uses an external RTC (PCF8523)
+  - This stores the UNIX time as a structure with Binary Coded Decimal notation
+  - The MSB of the seconds register has an error bit to say if this has been corrputed
+- The RTC time is converted to unix seconds and saved as the system time with `settimeofday`
+- The system timezone is stored with:
+
+```C
+setenv("TZ", tz, 1);
+tzset();
+```
+
+- The local time string is shown with `time()` to get the unix then `ctime` for the converted string
+- The local time structure is called with `localtime_r()`
+
 # OLD STUFF
 
 - Install ESP-IDF >= V5.4 and install tools
@@ -147,23 +163,25 @@ idf.py menuconfig → Component config → ESP System Settings → Channel for c
   - Note: You can keep the idf.pythonInstallPath that was created on VS Code open
   - Note: The esp-idf path may be different
 
-```
+````
+
 {
-  "idf.pythonInstallPath": "/opt/homebrew/opt/python@3.11/Frameworks/Python.framework/Versions/3.11/bin/python3",
-  "idf.espIdfPath": "/Volumes/Data_Int/_Documents/ESP/_CODE/v5/esp-idf-v5",
-  "C_Cpp.intelliSenseEngine": "default",
-  "C_Cpp.default.configurationProvider": "ms-vscode.cpptools",
-  "[c]": {
-    "editor.defaultFormatter": "ms-vscode.cpptools"
-  },
-  "[cpp]": {
-    "editor.defaultFormatter": "ms-vscode.cpptools"
-  },
-  "editor.formatOnSave": true,
-  "files.associations": {
-    "crush_wifi.h": "c"
-  }
+"idf.pythonInstallPath": "/opt/homebrew/opt/python@3.11/Frameworks/Python.framework/Versions/3.11/bin/python3",
+"idf.espIdfPath": "/Volumes/Data_Int/\_Documents/ESP/\_CODE/v5/esp-idf-v5",
+"C_Cpp.intelliSenseEngine": "default",
+"C_Cpp.default.configurationProvider": "ms-vscode.cpptools",
+"[c]": {
+"editor.defaultFormatter": "ms-vscode.cpptools"
+},
+"[cpp]": {
+"editor.defaultFormatter": "ms-vscode.cpptools"
+},
+"editor.formatOnSave": true,
+"files.associations": {
+"crush_wifi.h": "c"
 }
+}
+
 ```
 
 - Open a new terminal in the VS Code Editor
@@ -181,8 +199,10 @@ idf.py menuconfig → Component config → ESP System Settings → Channel for c
 - Add the remove/hosted dependencies. These will be added to the main/idf_component.yml file
 
 ```
+
 idf.py add-dependency "espressif/esp_wifi_remote"
 idf.py add-dependency "espressif/esp_hosted"
+
 ```
 
 ### Git info
@@ -191,5 +211,7 @@ The `managed_components` and `build` folders are ignored from git becuse they ar
 
 ### Menuconfig
 
-Here are some changes to menuconfig that are suggested but I didn't use them:  
+Here are some changes to menuconfig that are suggested but I didn't use them:
 https://github.com/espressif/esp-hosted-mcu/blob/main/docs/esp32_p4_function_ev_board.md#32-configuring-defaults
+```
+````
