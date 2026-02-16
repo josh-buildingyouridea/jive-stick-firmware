@@ -57,22 +57,75 @@ static void serial_input_handler(void *arg) {
             idx = 0;       // reset index
 
             // --------------- Handle the input ----------------
-            printf("%s: Received: %s\n", TAG, line);
+            ESP_LOGI(TAG, "Received: %s", line);
 
             switch (line[0]) {
-            case 'r':
+            // ********************* Time Events *********************
+            case 't': // Read system time
                 ESP_LOGI(TAG, "Read Time command received");
-                esp_event_post(JS_EVENT_BASE, JS_READ_TIME, line, strlen(line) + 1, 0);
-                break;
-            case 't':
-                ESP_LOGI(TAG, "Time command received");
-                esp_event_post(JS_EVENT_BASE, JS_SET_TIME, line, strlen(line) + 1, 0);
+                esp_event_post(JS_EVENT_BASE, JS_EVENT_READ_SYSTEM_TIME, NULL, 0, portMAX_DELAY);
                 break;
 
-            case 's':
-                ESP_LOGI(TAG, "Go to sleep command received");
-                esp_event_post(JS_EVENT_BASE, JS_EVENT_GOTO_SLEEP, line, strlen(line) + 1, 0);
+            case 'T': // Write system time
+                ESP_LOGI(TAG, "Write Time command received");
+                // Strip out the first two character (T:) before posting the event
+                esp_event_post(JS_EVENT_BASE, JS_EVENT_WRITE_SYSTEM_TIME, line + 2, strlen(line) - 2, portMAX_DELAY);
                 break;
+
+            case 'n': // Set the next alarm (for testing)
+                ESP_LOGI(TAG, "JS_EVENT_SET_NEXT_ALARM");
+                esp_event_post(JS_EVENT_BASE, JS_EVENT_SET_NEXT_ALARM, NULL, 0, portMAX_DELAY);
+                break;
+
+            // ***************** User Settings Events ****************
+            case 'l': // Read Location/Timezone
+                ESP_LOGI(TAG, "Read timezone command received");
+                esp_event_post(JS_EVENT_BASE, JS_EVENT_READ_TIMEZONE, NULL, 0, portMAX_DELAY);
+                break;
+
+            case 'L': // Write Location/Timezone
+                ESP_LOGI(TAG, "Write timezone command received");
+                // Strip out the first two character (L:) before posting the event with a null-terminated string
+                esp_event_post(JS_EVENT_BASE, JS_EVENT_WRITE_TIMEZONE, line + 2, strlen(line) - 2, portMAX_DELAY);
+                break;
+
+            case 'a': // Read Alarms
+                ESP_LOGI(TAG, "Read Alarms command received");
+                esp_event_post(JS_EVENT_BASE, JS_EVENT_READ_ALARMS, NULL, 0, portMAX_DELAY);
+                break;
+
+            case 'A': // Write Alarms
+                ESP_LOGI(TAG, "Alarms command received");
+                // Strip out the first two character (A:) before posting the event
+                esp_event_post(JS_EVENT_BASE, JS_EVENT_WRITE_ALARMS, line + 2, strlen(line) - 2, portMAX_DELAY);
+                break;
+
+            // ******************** Audio Events ********************
+            case 'P': // Play audio (P:[idx])
+                ESP_LOGI(TAG, "Play Audio command received");
+                // Check for an index after the P: (e.g. P:1)
+                if (strlen(line) > 2 && line[1] == ':') {
+                    // Pass the index of the audio file to play (e.g. P:1 will pass 1 as data)
+                    esp_event_post(JS_EVENT_BASE, JS_EVENT_PLAY_AUDIO, line + 2, strlen(line) - 2, portMAX_DELAY);
+                } else {
+                    ESP_LOGW(TAG, "Invalid Play Audio command format. Use P:[index]");
+                }
+                break;
+
+                // case 'e':
+                //     ESP_LOGI(TAG, "Write Time command received");
+                //     esp_event_post(JS_EVENT_BASE, JS_EVENT_WRITE_SYSTEM_TIME, line, strlen(line) + 1, 0);
+                //     break;
+
+                // case 'P':
+                //     ESP_LOGI(TAG, "Write Time command received");
+                //     esp_event_post(JS_EVENT_BASE, JS_EVENT_WRITE_SYSTEM_TIME, line, strlen(line) + 1, 0);
+                //     break;
+
+                // case 's':
+                //     ESP_LOGI(TAG, "Go to sleep command received");
+                //     esp_event_post(JS_EVENT_BASE, JS_EVENT_GOTO_SLEEP, line, strlen(line) + 1, 0);
+                //     break;
 
             default:
                 ESP_LOGW(TAG, "Unknown command: %s", line);

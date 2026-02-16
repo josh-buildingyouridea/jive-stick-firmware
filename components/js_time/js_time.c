@@ -4,17 +4,20 @@
 // Library Includes
 #include "driver/i2c_master.h"
 #include "esp_check.h"
+#include "esp_event.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include <stdlib.h>
 #include <sys/time.h>
 #include <time.h>
 
 // Local Includes
+#include "js_events.h"
 #include "js_i2c.h"
+#include "js_user_settings.h"
 
 // Defines
 #define TAG "js_time"
-#define TIMEZONE "EST5EDT,M3.2.0/2,M11.1.0/2" // Default to US Eastern Time with DST. This can be changed as needed. Format is TZ database format: https://www.iana.org/time-zones
 
 // PCF8523 Register Addresses
 #define I2C_ADDR 0x68    // PCF8523 I2C address
@@ -36,6 +39,11 @@ static time_t tm_to_utc(const struct tm *t);
 // Move to I2S?
 static esp_err_t read_register(uint8_t reg_addr, uint8_t *data, size_t len);
 static esp_err_t write_register(uint8_t reg_addr, uint8_t *data, size_t len);
+
+// Timer stuff
+static esp_timer_handle_t alarm_timer_handle = NULL;
+static int alarm_song_index = 0;
+static void alarm_timer_callback(void *arg);
 
 /** Initialize JS RTC (PCF8523) */
 esp_err_t js_time_init(void) {
@@ -60,13 +68,20 @@ esp_err_t js_time_init(void) {
         // return ESP_OK;
     }
 
-    // Set the timezone (TODO: Read from user preferences instead of hardcoding)
-    js_time_set_timezone(TIMEZONE);
+    // Set the timezone from user settings (this will handle DST and local time conversions)
+    js_time_set_timezone(js_user_settings_get_timezone());
 
     // Read the unix time from the RTC and set the system time
     uint64_t unix_time;
     ESP_GOTO_ON_ERROR(js_time_read_rtc(&unix_time), error, TAG, "Failed to read time from RTC");
     set_system_time(unix_time);
+
+    // Init the alarm timer (but don't start it yet)
+    esp_timer_create_args_t timer_args = {
+        .callback = alarm_timer_callback,
+        .name = "alarm_timer",
+    };
+    ESP_GOTO_ON_ERROR(esp_timer_create(&timer_args, &alarm_timer_handle), error, TAG, "Failed to create alarm timer");
 
     return ESP_OK;
 
@@ -129,6 +144,13 @@ error:
     return ret;
 }
 
+// read the current system time and return the unix seconds
+esp_err_t js_time_read_sys_unix(uint64_t *unix_seconds) {
+    time_t now = time(NULL);
+    *unix_seconds = (uint64_t)now;
+    return ESP_OK;
+}
+
 // Read the current system time and passes back
 esp_err_t js_time_read_sys() {
     // Get the unix time from the system
@@ -159,6 +181,19 @@ esp_err_t js_time_set(uint64_t unix_seconds) {
 
 error:
     return ret;
+}
+
+esp_err_t js_time_set_next_alarm(uint64_t seconds_from_now, int song_index) {
+    int64_t us = (int64_t)seconds_from_now * 1000000; // Convert to microseconds
+    ESP_LOGI(TAG, "Setting next alarm for %lld seconds from now (us: %lld) with song index %d", seconds_from_now, us, song_index);
+
+    // Stop the timer if it's already running
+    esp_timer_stop(alarm_timer_handle);
+
+    // Start the timer with the new alarm time
+    ESP_RETURN_ON_ERROR(esp_timer_start_once(alarm_timer_handle, us), TAG, "Failed to start alarm timer");
+
+    return ESP_OK;
 }
 
 /* ************************** Local Functions ************************** */
@@ -259,4 +294,15 @@ static time_t tm_to_utc(const struct tm *t) {
 
     int64_t secs = days * 86400LL + t->tm_hour * 3600 + t->tm_min * 60 + t->tm_sec;
     return (time_t)secs;
+}
+
+/*********************** Alarm Timer Callback *************************/
+static void alarm_timer_callback(void *arg) {
+    ESP_LOGI(TAG, "Alarm timer callback triggered! Playing alarm song index: %d", alarm_song_index);
+    // Call to play the song
+    uint8_t song_idx = alarm_song_index;
+    esp_event_post(JS_EVENT_BASE, JS_EVENT_PLAY_AUDIO, &song_idx, sizeof(song_idx), portMAX_DELAY);
+
+    // Set the next alarm based on user settings
+    esp_event_post(JS_EVENT_BASE, JS_EVENT_SET_NEXT_ALARM, NULL, 0, portMAX_DELAY);
 }

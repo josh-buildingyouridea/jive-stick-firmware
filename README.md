@@ -152,6 +152,34 @@ tzset();
 
 - The local time string is shown with `time()` to get the unix then `ctime` for the converted string
 - The local time structure is called with `localtime_r()`
+- The initial RTC time can be set by sending: `T:1770921313` (use actual current unix seconds)
+- Timezone can be set with `L:EST5EDT,M3.2.0/2,M11.1.0/2`
+
+## BLE/Serial Commanmds
+
+### System Time
+
+Reading:
+
+- Serial: `t`
+- BLE:
+
+Writing:
+
+- Serial: `T:[unix seconds]`
+- BLE:
+
+### Location (Timezone)
+
+Reading:
+
+- Serial: `l`
+- BLE:
+
+Writing:
+
+- Serial: `L:EST5EDT,M3.2.0/2,M11.1.0/2`
+- BLE:
 
 # OLD STUFF
 

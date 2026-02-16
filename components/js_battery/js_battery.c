@@ -22,7 +22,7 @@
 static void input_pin_isr(void *arg);
 static void show_battery_state_task(void *arg);
 static bool _show_battery_state = true;
-static void show_battery_voltage(void);
+static void show_battery_voltage(int voltage);
 
 /** Initialize JS Battery
  * Init the pins and code for the battery monitoring
@@ -80,6 +80,7 @@ static void show_battery_state_task(void *arg) {
     bool is_charging = gpio_get_level(PIN_PWR_IN);
     bool LED_was_on = false;
     int show_battery_timeout_counter = 0;
+    int battery_voltage = js_adc_battery_voltage();
 
     for (;;) {
         // Delay for blinking and to avoid spamming logs
@@ -91,13 +92,14 @@ static void show_battery_state_task(void *arg) {
             continue;
         }
 
-        // Check the charging state and update LEDs accordingly
+        // Check the charging state and battery voltage
         is_charging = gpio_get_level(PIN_PWR_IN);
+        battery_voltage = js_adc_battery_voltage();
 
         // If not charging
         if (!is_charging) {
             // Show the battery voltage
-            show_battery_voltage();
+            show_battery_voltage(battery_voltage);
             if (show_battery_timeout_counter++ > 10) { // After 5 seconds, stop showing the battery state to save power
                 _show_battery_state = false;
                 show_battery_timeout_counter = 0;
@@ -105,18 +107,25 @@ static void show_battery_state_task(void *arg) {
             continue;
         }
 
+        // If charging and was off, turn led ON
         if (!LED_was_on) {
-            show_battery_voltage();
+            show_battery_voltage(battery_voltage);
             LED_was_on = true;
+            continue;
+        }
+
+        // If fully charged, keep LED on
+        if (battery_voltage > 4100) {
+            show_battery_voltage(battery_voltage);
         } else {
+            // Toggle off
             js_leds_clear();
             LED_was_on = false;
         }
     }
 }
 
-static void show_battery_voltage() {
-    int voltage = js_adc_battery_voltage();
+static void show_battery_voltage(int voltage) {
     // ESP_LOGI(TAG, "Battery Voltage: %d mV", voltage);
     if (voltage > 4100) {
         js_leds_set_color(0, BRIGHTNESS, 0); // Green for full
