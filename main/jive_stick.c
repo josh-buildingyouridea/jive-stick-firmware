@@ -217,12 +217,12 @@ static void app_event_handler(void *arg, esp_event_base_t base, int32_t id,
     // BLE.....
     case JS_EVENT_START_PAIRING:
         ESP_LOGI(TAG, "JS_EVENT_START_PAIRING command received");
-        js_ble_set_state(BLE_STATE_CONNECTED);
+        js_ble_start_advertising();
         break;
 
     case JS_EVENT_STOP_BLE:
         ESP_LOGI(TAG, "JS_EVENT_STOP_BLE command received");
-        js_ble_set_state(BLE_STATE_DISCONNECTED);
+        js_ble_stop();
         break;
 
     // Battery.....

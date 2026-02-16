@@ -12,5 +12,6 @@ typedef enum {
 
 // Functions
 esp_err_t js_ble_init(void);
+esp_err_t js_ble_start_advertising(void);
 ble_state_t js_ble_get_state(void);
-void js_ble_set_state(ble_state_t state);
+esp_err_t js_ble_stop(void);
