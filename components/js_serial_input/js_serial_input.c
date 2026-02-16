@@ -105,17 +105,18 @@ static void serial_input_handler(void *arg) {
                 ESP_LOGI(TAG, "Play Audio command received");
                 // Check for an index after the P: (e.g. P:1)
                 if (strlen(line) > 2 && line[1] == ':') {
-                    // Pass the index of the audio file to play (e.g. P:1 will pass 1 as data)
-                    esp_event_post(JS_EVENT_BASE, JS_EVENT_PLAY_AUDIO, line + 2, strlen(line) - 2, portMAX_DELAY);
+                    // Pass the index of the audio file to play as an integer (e.g. "1" -> 1)
+                    uint8_t audio_index = atoi(line + 2);
+                    esp_event_post(JS_EVENT_BASE, JS_EVENT_PLAY_AUDIO, &audio_index, sizeof(audio_index), portMAX_DELAY);
                 } else {
                     ESP_LOGW(TAG, "Invalid Play Audio command format. Use P:[index]");
                 }
                 break;
 
-                // case 'e':
-                //     ESP_LOGI(TAG, "Write Time command received");
-                //     esp_event_post(JS_EVENT_BASE, JS_EVENT_WRITE_SYSTEM_TIME, line, strlen(line) + 1, 0);
-                //     break;
+            case 'e':
+                ESP_LOGI(TAG, "Emergency Button Pressed command received");
+                esp_event_post(JS_EVENT_BASE, JS_EVENT_EMERGENCY_BUTTON_PRESSED, NULL, 0, portMAX_DELAY);
+                break;
 
                 // case 'P':
                 //     ESP_LOGI(TAG, "Write Time command received");

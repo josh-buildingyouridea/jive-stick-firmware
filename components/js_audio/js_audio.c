@@ -33,13 +33,25 @@ typedef struct
     int step_index;
 } ima_state_t;
 
+static const char *audio_tracks[] = {
+    // "/fs/FrEliseWoo59_120s_16k_adpcm_01.wav",
+    "/fs/FrEliseWoo59_3s_16k_adpcm_01.wav",
+    // "/fs/BeethovenNo5_120s_16k_adpcm_00.wav",
+    "/fs/BeethovenNo5_3s_16k_adpcm_00.wav",
+    "/fs/Groovin_120s_16k_adpcm_3db.wav",
+    "/fs/OldTimeRockAndRoll_120s_16k_adpcm_6db.wav",
+};
+
 // Forward Declarations
-static bool _is_playing = false;
+static bool _is_song_playing = false;
 static bool _stop_requested = false;
 static i2s_chan_handle_t tx_chan;
 static int16_t ima_decode_nibble(uint8_t nibble, ima_state_t *st);
 static bool parse_wav_header(FILE *f, wav_info_t *info);
 static void audio_play_task(void *arg);
+static void emergency_play_task(void *arg);
+static bool is_emergency_audio_playing = false;
+static bool _stop_emergency_audio_requested = false;
 static void stop_audio(void); // Stop the audio playback with silence
 
 /** Initialize JS Audio
@@ -79,22 +91,23 @@ error:
 
 /* ************************** Global Functions ************************** */
 /** Play the audio file with passed in path */
-void js_audio_play_pause(const char *path) {
-    if (_is_playing) {
+void js_audio_play_pause_song(uint8_t song_index) {
+    ESP_LOGI(TAG, "js_audio_play_pause_song with index: %u", song_index);
+
+    if (_is_song_playing) {
         ESP_LOGI(TAG, "Stopping audio playback");
-        _is_playing = false;
+        _is_song_playing = false;
         _stop_requested = true;
     } else {
-        ESP_LOGI(TAG, "Starting audio play task for file: %s", path);
-        _is_playing = true;
+        ESP_LOGI(TAG, "Starting audio play task for file: %s", audio_tracks[song_index]);
+        _is_song_playing = true;
         _stop_requested = false;
-        char *path_copy = strdup(path); // Send a copy incase this changes
-        xTaskCreate(audio_play_task, "audio_play_task", 4096, path_copy, 10, NULL);
+        xTaskCreate(audio_play_task, "audio_play_task", 4096, (void *)audio_tracks[song_index], 10, NULL);
     }
 }
 
 static void audio_play_task(void *arg) {
-    char *path = (char *)arg;
+    const char *path = (const char *)arg;
     ESP_LOGI(TAG, "Playing audio file: %s", path);
 
     // Open the file
@@ -173,8 +186,116 @@ static void audio_play_task(void *arg) {
 cleanup:
     stop_audio(); // Make sure the audio is stopped properly
     _stop_requested = false;
-    _is_playing = false;
-    if (path) free(path);
+    _is_song_playing = false;
+    if (f) fclose(f);
+    vTaskDelete(NULL); // Delete self when done
+}
+
+void js_audio_play_pause_emergency_audio(void) {
+    ESP_LOGI(TAG, "js_audio_play_pause_emergency_audio called");
+
+    if (is_emergency_audio_playing) {
+        ESP_LOGI(TAG, "Stopping emergency audio playback");
+        _stop_emergency_audio_requested = true;
+    } else {
+        ESP_LOGI(TAG, "Starting emergency audio play task");
+        // Stop any regular audio that's playing
+        if (_is_song_playing) {
+            ESP_LOGI(TAG, "Stopping regular audio playback before starting emergency audio");
+            _stop_requested = true;
+            vTaskDelay(pdMS_TO_TICKS(100)); // Give some time for the regular audio task to stop
+        }
+        is_emergency_audio_playing = true;
+        _stop_emergency_audio_requested = false;
+        xTaskCreate(emergency_play_task, "emergency_play_task", 4096, NULL, 10, NULL);
+    }
+}
+
+// Play help_16k_adpcm_6db.wav on loop until stopped
+static void emergency_play_task(void *arg) {
+    const char *path = "/fs/help_16k_adpcm_6db.wav";
+    ESP_LOGI(TAG, "Playing emergency audio file: %s", path);
+
+    // Open the file
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        ESP_LOGE("AUDIO", "Failed to open file: %s", path);
+        goto cleanup;
+    }
+
+    // Read the WAV header and fill in the wav_info_t structure
+    wav_info_t wi;
+    if (!parse_wav_header(f, &wi)) {
+        ESP_LOGE(TAG, "Bad WAV header");
+        goto cleanup;
+    }
+    ESP_LOGI(TAG, "fmt=%u ch=%u sr=%lu bps=%u align=%u data=%lu+%lu",
+             wi.audio_format, wi.channels, (unsigned long)wi.sample_rate,
+             wi.bits_per_sample, wi.block_align,
+             wi.data_offset, (unsigned long)wi.data_size);
+
+    // Validate the header
+    if (wi.audio_format != 0x0011 || wi.channels != 1 || wi.sample_rate != 16000 || wi.bits_per_sample != 4) {
+        ESP_LOGE(TAG, "Unsupported WAV (need IMA ADPCM mono 16kHz 4-bit)");
+        goto cleanup;
+    }
+
+    while (1) {
+        if (_stop_emergency_audio_requested) break;
+
+        // seek to data
+        fseek(f, wi.data_offset, SEEK_SET);
+
+        // (optional) set I2S rate from header
+        i2s_std_clk_config_t clk = I2S_STD_CLK_DEFAULT_CONFIG(wi.sample_rate);
+        i2s_channel_disable(tx_chan);
+        i2s_channel_reconfig_std_clock(tx_chan, &clk);
+        i2s_channel_enable(tx_chan);
+
+        const int block_bytes = wi.block_align;
+        const int samples_per_block = 1 + (block_bytes - 4) * 2;
+
+        uint8_t *blk = malloc(block_bytes);
+        int16_t *pcm = malloc(samples_per_block * sizeof(int16_t));
+
+        // Play the audio
+        while (1) {
+            if (_stop_emergency_audio_requested) break;
+
+            size_t got = fread(blk, 1, block_bytes, f);
+            if (got != (size_t)block_bytes) break;
+
+            // block header
+            int16_t predictor = (int16_t)(blk[0] | (blk[1] << 8));
+            uint8_t step_index = blk[2];
+
+            ima_state_t st = {
+                .predictor = predictor,
+                .step_index = step_index > 88 ? 88 : step_index,
+            };
+
+            int out_samples = 0;
+            pcm[out_samples++] = (int16_t)st.predictor; // first sample is the predictor
+
+            // decode packed nibbles
+            for (int i = 4; i < block_bytes; i++) {
+                uint8_t b = blk[i];
+                pcm[out_samples++] = ima_decode_nibble(b & 0x0F, &st);
+                pcm[out_samples++] = ima_decode_nibble(b >> 4, &st);
+            }
+
+            size_t written = 0;
+            i2s_channel_write(tx_chan, pcm, out_samples * sizeof(int16_t), &written, portMAX_DELAY);
+        }
+
+        free(pcm);
+        free(blk);
+    }
+
+cleanup:
+    stop_audio(); // Make sure the audio is stopped properly
+    _stop_emergency_audio_requested = false;
+    is_emergency_audio_playing = false;
     if (f) fclose(f);
     vTaskDelete(NULL); // Delete self when done
 }

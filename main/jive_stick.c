@@ -51,6 +51,9 @@ void app_main(void) {
     // Handle Wake-Up Reason
     js_sleep_handle_wakeup();
 
+    // Set the next alarm based on user settings
+    esp_event_post(JS_EVENT_BASE, JS_EVENT_SET_NEXT_ALARM, NULL, 0, portMAX_DELAY);
+
     // *************** Temp ******************
     esp_vfs_littlefs_conf_t conf = {
         .base_path = "/fs",
@@ -145,6 +148,8 @@ static void app_event_handler(void *arg, esp_event_base_t base, int32_t id,
         uint64_t new_time = strtoull((char *)data, NULL, 10);
         printf("Setting system time to: %lld\n", new_time);
         js_time_set(new_time);
+        // Update the next alarm since the time has changed
+        esp_event_post(JS_EVENT_BASE, JS_EVENT_SET_NEXT_ALARM, NULL, 0, portMAX_DELAY);
         break;
 
     case JS_EVENT_SET_NEXT_ALARM:
@@ -157,6 +162,7 @@ static void app_event_handler(void *arg, esp_event_base_t base, int32_t id,
             } else {
                 printf("Seconds until next alarm: %lld\n", seconds_until_alarm);
                 printf("Next alarm song index: %d\n", next_alarm_song_index);
+                js_time_set_next_alarm(seconds_until_alarm, next_alarm_song_index);
             }
         } else {
             ESP_LOGE(TAG, "Failed to calculate seconds until next alarm");
@@ -174,6 +180,8 @@ static void app_event_handler(void *arg, esp_event_base_t base, int32_t id,
         ESP_LOGI(TAG, "Write timezone command received with data: %s", (char *)data);
         js_user_settings_set_timezone((char *)data); // Set the timezone in user settings (and nvs)
         js_time_set_timezone((char *)data);          // Update the system time settings
+        // Update the next alarm since the timezone has changed
+        esp_event_post(JS_EVENT_BASE, JS_EVENT_SET_NEXT_ALARM, NULL, 0, portMAX_DELAY);
         break;
 
     case JS_EVENT_READ_ALARMS:
@@ -190,28 +198,20 @@ static void app_event_handler(void *arg, esp_event_base_t base, int32_t id,
         } else {
             printf("Failed to update alarms: %s\n", esp_err_to_name(rsp));
         }
+        // Update the next alarm since the alarms have changed
+        esp_event_post(JS_EVENT_BASE, JS_EVENT_SET_NEXT_ALARM, NULL, 0, portMAX_DELAY);
         break;
-    // // Time Events
-    // case JS_EVENT_READ_SYSTEM_TIME:
-    //     ESP_LOGI(TAG, "Read time command received");
-    //     uint64_t unix_time;
-    //     if (js_time_read_rtc(&unix_time) == ESP_OK) {
-    //         ESP_LOGI(TAG, "Current RTC Unix Time: %lld", unix_time);
-    //         js_time_read_sys();
-    //     } else {
-    //         ESP_LOGE(TAG, "Failed to read time from RTC");
-    //     }
-    //     break;
 
-    // AUDIO.....
-    case JS_EVENT_PLAY_AUDIO:
-        ESP_LOGI(TAG, "Play audio command received");
-        js_audio_play_pause("/fs/Groovin_120s_16k_adpcm_3db.wav");
+    // ******************** Audio Events ********************
+    case JS_EVENT_PLAY_AUDIO: // Data will be uint8_t index of the song to play
+        ESP_LOGI(TAG, "Play audio command received with data: %d", *(uint8_t *)data);
+        // Convert the data to an index (e.g. "1" -> 1) and play the corresponding song
+        js_audio_play_pause_song(*(uint8_t *)data);
         break;
 
     case JS_EVENT_EMERGENCY_BUTTON_PRESSED:
         ESP_LOGI(TAG, "Emergency button pressed");
-        js_audio_play_pause("/fs/OldTimeRockAndRoll_120s_16k_adpcm_6db.wav");
+        js_audio_play_pause_emergency_audio();
         break;
 
     // BLE.....
