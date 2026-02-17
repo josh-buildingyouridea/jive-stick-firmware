@@ -2,27 +2,41 @@
 #include "js_ble_gatt.h"
 
 // Libraray includes
+#include "esp_event.h"
 #include "esp_log.h"
 #include "host/ble_gatt.h"
 #include "host/ble_hs.h"
 #include "host/util/util.h"
+#include "js_events.h"
 #include <string.h>
 
+// Defines
+#define TAG "js_ble_gatt"
+
 // Service and Characteristics addresses (UUIDs)
-static const ble_uuid128_t SVC_UUID = BLE_UUID128_INIT(0x9E, 0x81, 0x20, 0x01, 0x22, 0xE5, 0xA9, 0xE0, 0x93, 0xF3, 0xA3, 0xB5, 0x01, 0x00, 0x40, 0x6E);      // 6E400001-B5A3-F393-E0A9-E5220120819E
-static const ble_uuid128_t CHR_READ_UUID = BLE_UUID128_INIT(0x9E, 0x81, 0x20, 0x01, 0x22, 0xE5, 0xA9, 0xE0, 0x93, 0xF3, 0xA3, 0xB5, 0x02, 0x00, 0x40, 0x6E); // 6E400002-B5A3-F393-E0A9-E5220120819E
-// static const ble_uuid128_t CHR_WRITE_UUID = BLE_UUID128_INIT(0x9E, 0x81, 0x20, 0x01, 0x22, 0xE5, 0xA9, 0xE0, 0x93, 0xF3, 0xA3, 0xB5, 0x03, 0x00, 0x40, 0x6E); // 6E400003-B5A3-F393-E0A9-E5220120819E
+static const ble_uuid128_t SVC_UUID = BLE_UUID128_INIT(0x9E, 0x81, 0x20, 0x01, 0x22, 0xE5, 0xA9, 0xE0, 0x93, 0xF3, 0xA3, 0xB5, 0x01, 0x00, 0x40, 0x6E);        // 6E400001-B5A3-F393-E0A9-E5220120819E
+static const ble_uuid128_t CHR_WRITE_UUID = BLE_UUID128_INIT(0x9E, 0x81, 0x20, 0x01, 0x22, 0xE5, 0xA9, 0xE0, 0x93, 0xF3, 0xA3, 0xB5, 0x02, 0x00, 0x40, 0x6E);  // 6E400002-B5A3-F393-E0A9-E5220120819E
+static const ble_uuid128_t CHR_NOTIFY_UUID = BLE_UUID128_INIT(0x9E, 0x81, 0x20, 0x01, 0x22, 0xE5, 0xA9, 0xE0, 0x93, 0xF3, 0xA3, 0xB5, 0x03, 0x00, 0x40, 0x6E); // 6E400003-B5A3-F393-E0A9-E5220120819E
 
 // Forward Declarations
-static int hello_access_cb(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg);
+static int ble_write_callback(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg);
+static int ble_notify_callback(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg);
+static uint16_t s_notify_val_handle;
+static uint16_t ble_conn_handle = BLE_HS_CONN_HANDLE_NONE; // Connection handle passed from js_ble.c for use in notifications
 
 /* ****************** Service / Characteristics Definitions ***************** */
 // Custom characteristics definition
 static const struct ble_gatt_chr_def gatt_chrs[] = {
     {
-        .uuid = (const ble_uuid_t *)&CHR_READ_UUID,
-        .access_cb = hello_access_cb,
-        .flags = BLE_GATT_CHR_F_READ,
+        .uuid = (const ble_uuid_t *)&CHR_WRITE_UUID,
+        .access_cb = ble_write_callback,
+        .flags = BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_WRITE_NO_RSP,
+    },
+    {
+        .uuid = (const ble_uuid_t *)&CHR_NOTIFY_UUID,
+        .access_cb = ble_notify_callback,   // Notify characteristic callback (not used)
+        .val_handle = &s_notify_val_handle, // Handle for sending notifications back to the client
+        .flags = BLE_GATT_CHR_F_NOTIFY,
     },
     {0}};
 
@@ -40,13 +54,74 @@ const struct ble_gatt_svc_def *js_ble_get_gatt_svcs(void) {
     return gatt_svcs;
 }
 
-/* ************************** Callback Functions ************************** */
-static int hello_access_cb(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg) {
-    if (ctxt->op != BLE_GATT_ACCESS_OP_READ_CHR) {
-        return BLE_ATT_ERR_READ_NOT_PERMITTED;
+// Getting the notify handle from js_ble.c
+void js_ble_gatt_set_conn_handle(uint16_t conn_handle) {
+    ble_conn_handle = conn_handle;
+}
+
+/* ************************** Global Notify Function ************************** */
+
+esp_err_t js_ble_notify(const char *s) {
+    ESP_LOGI(TAG, "js_ble_notify called with: %s", s);
+
+    if (!s) return ESP_ERR_INVALID_ARG;
+    if (ble_conn_handle == BLE_HS_CONN_HANDLE_NONE) return ESP_ERR_INVALID_STATE;
+    if (s_notify_val_handle == 0) return ESP_ERR_INVALID_STATE;
+
+    size_t len = strlen(s);
+    if (len == 0) return ESP_ERR_INVALID_ARG;
+
+    struct os_mbuf *om = ble_hs_mbuf_from_flat(s, len);
+    if (!om) return ESP_ERR_NO_MEM;
+
+    int rc = ble_gatts_notify_custom(ble_conn_handle, s_notify_val_handle, om);
+    if (rc != 0) {
+        ESP_LOGE(TAG, "Notify failed: %d", rc);
+        return ESP_FAIL;
     }
-    const char *msg = "hello world";
-    return os_mbuf_append(ctxt->om, msg, strlen(msg)) == 0
-               ? 0
-               : BLE_ATT_ERR_INSUFFICIENT_RES;
+
+    return ESP_OK;
+}
+
+/* ************************** Callback Function ************************** */
+// Callback for when the client (phone) write a command. Response will be sent back on the notify channel if needed.
+static int ble_write_callback(uint16_t conn_handle, uint16_t attr_handle,
+                              struct ble_gatt_access_ctxt *ctxt, void *arg) {
+    // This callback is only for writes, so check op
+    if (ctxt->op != BLE_GATT_ACCESS_OP_WRITE_CHR) {
+        return BLE_ATT_ERR_WRITE_NOT_PERMITTED;
+    }
+
+    // Create a buffer to hold the incoming data. Largest is alarms and 128 should be enough for 10 alarms
+    char buf[128];
+
+    // Confirm that length passed is valid and not larger than our buffer
+    int len = OS_MBUF_PKTLEN(ctxt->om);
+    if (len <= 0 || len >= (int)sizeof(buf)) {
+        return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
+    }
+
+    // Copy the data from the mbuf to our buffer and null-terminate it
+    int rc = ble_hs_mbuf_to_flat(ctxt->om, buf, sizeof(buf) - 1, NULL);
+    if (rc != 0) return BLE_ATT_ERR_UNLIKELY;
+    buf[len] = '\0';
+
+    // Print what was passed, will parse later
+    ESP_LOGI(TAG, "ble_write_callback received: %s", buf);
+
+    // Post to main event loop (copies bytes internally)
+    // js_ble_notify(buf); // Echo back the received command as a notification for testing (can remove later when we implement actual command handling)
+    esp_event_post(JS_EVENT_BASE, JS_EVENT_READ_SYSTEM_TIME, NULL, 0, portMAX_DELAY);
+
+    // No payload response here (ATT-level write response is handled by stack)
+    return 0;
+}
+
+// Notify Callback. This is needed for NimBLE but not used
+static int ble_notify_callback(uint16_t conn_handle, uint16_t attr_handle,
+                               struct ble_gatt_access_ctxt *ctxt, void *arg) {
+    // We don’t allow reads/writes on the notify characteristic.
+    if (ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR) return BLE_ATT_ERR_READ_NOT_PERMITTED;
+    if (ctxt->op == BLE_GATT_ACCESS_OP_WRITE_CHR) return BLE_ATT_ERR_WRITE_NOT_PERMITTED;
+    return BLE_ATT_ERR_UNLIKELY;
 }

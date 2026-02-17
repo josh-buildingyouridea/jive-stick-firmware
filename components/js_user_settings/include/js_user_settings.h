@@ -27,6 +27,7 @@ esp_err_t js_user_settings_set_alarms(const char *alarm_str);
 esp_err_t js_user_settings_seconds_until_next_alarm(uint64_t *seconds_until_alarm, int *next_alarm_song_index);
 
 /*
+A:HH:MM,enabled,song_index;HH:MM,enabled,song_index;...
 A:09:00,1,1;11:00,1,2;13:41,1,3;13:45,1,3
 A:09:00,0,1
 */

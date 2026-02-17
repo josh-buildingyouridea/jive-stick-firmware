@@ -21,6 +21,7 @@
 #include "js_audio.h"
 #include "js_battery.h"
 #include "js_ble.h"
+#include "js_ble_gatt.h"
 #include "js_buttons.h"
 #include "js_events.h"
 #include "js_i2c.h"
@@ -131,16 +132,25 @@ static void app_event_handler(void *arg, esp_event_base_t base, int32_t id,
         // ESP_LOGI(TAG, "Read time command received");
         uint64_t rtc_unix_time;
         uint64_t sys_unix_time;
+        char response[128];
+        size_t offset = 0;
+        offset += snprintf(response + offset, sizeof(response) - offset, "t:");
         if (js_time_read_rtc(&rtc_unix_time) == ESP_OK) {
             printf("Current RTC Unix Time: %lld\n", rtc_unix_time);
+            offset += snprintf(response + offset, sizeof(response) - offset, "RTC:%lld", rtc_unix_time); // For BLE Response
         } else {
             ESP_LOGE(TAG, "Failed to read time from RTC");
+            offset += snprintf(response + offset, sizeof(response) - offset, "RTC:error");
         }
         if (js_time_read_sys_unix(&sys_unix_time) == ESP_OK) {
             printf("Current System Unix Time: %lld -> %s \n", sys_unix_time, ctime((time_t *)&sys_unix_time));
+            offset += snprintf(response + offset, sizeof(response) - offset, "/SYS:%lld", sys_unix_time); // For BLE Response
         } else {
             ESP_LOGE(TAG, "Failed to read time from system");
+            offset += snprintf(response + offset, sizeof(response) - offset, "/SYS:error");
         }
+        // Send the response back as a notification (for testing, can remove later)
+        js_ble_notify(response);
         break;
 
     case JS_EVENT_WRITE_SYSTEM_TIME:

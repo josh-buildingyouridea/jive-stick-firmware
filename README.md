@@ -159,30 +159,39 @@ tzset();
 
 ### System Time
 
-Reading:
-
-- Serial: `t`
-- BLE:
-
-Writing:
-
-- Serial: `T:[unix seconds]`
-- BLE:
+- Reading:`t`
+- Writing: `T:[unix seconds]`
 
 ### Location (Timezone)
 
-Reading:
+- Reading: `l`
+- Writing: `L:EST5EDT,M3.2.0/2,M11.1.0/2`
 
-- Serial: `l`
-- BLE:
+### Alarms
 
-Writing:
-
-- Serial: `L:EST5EDT,M3.2.0/2,M11.1.0/2`
-- BLE:
+- Reading: `a`
+- Writing: `A:09:00,1,1;11:00,1,2;13:41,1,3;13:45,1,3`
+  - This is the format `A:HH:MM,enabled,song_index;HH:MM,enabled,song_index;...`
+  - Note: No trailing `;`
 
 ## BLE
+
+### Setup
 
 - idf.py menuconfig → Component config → Bluetooth → Enable
   - Host → NimBLE - BLE only
   - Enable BLE (Not needed on C6?)
+
+### Use
+
+- The ESP32 builds the BLE stack on reset but does not start the radio until button push.
+- On button push it starts broadcasting and blinking the BLE led
+- On connection the LED goes solid
+- On long press, BLE Disconnects and led goes off (also goes off if device disconnects)
+
+### Structure
+
+- Service: There is one service `6E400001-B5A3-F393-E0A9-E5220120819E`
+- Write Channel: This is where the phone sends commands (See BLE/Serial Commands): `6E400002-B5A3-F393-E0A9-E5220120819E`
+- Notify Channel: The phone shall connect to this to receive the device response: `6E400003-B5A3-F393-E0A9-E5220120819E`
+- MTU should be 256 (but most buffers are at 128)

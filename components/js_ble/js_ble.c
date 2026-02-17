@@ -153,6 +153,7 @@ static int gap_event_cb(struct ble_gap_event *event, void *arg) {
     case BLE_GAP_EVENT_CONNECT:
         if (event->connect.status == 0) {
             ble_conn_handle = event->connect.conn_handle;
+            js_ble_gatt_set_conn_handle(ble_conn_handle); // Pass the connection handle to js_ble_gatt.c so it can use it for notifications
             ESP_LOGI(TAG, "Connected");
         } else {
             ble_conn_handle = BLE_HS_CONN_HANDLE_NONE;
@@ -164,6 +165,7 @@ static int gap_event_cb(struct ble_gap_event *event, void *arg) {
     case BLE_GAP_EVENT_DISCONNECT:
         ESP_LOGI(TAG, "Disconnected");
         ble_conn_handle = BLE_HS_CONN_HANDLE_NONE;
+        js_ble_gatt_set_conn_handle(ble_conn_handle); // Pass the connection handle to js_ble_gatt.c so it can use it for notifications
         return 0;
 
     default:
@@ -176,8 +178,7 @@ static int gap_event_cb(struct ble_gap_event *event, void *arg) {
 static void on_stack_ready(void) {
     ESP_LOGI(TAG, "BLE stack is ready");
     ble_hs_id_infer_auto(0, &s_own_addr_type); // Ensure address type is set (needed for adv_start)
-    // ESP_LOGI(TAG, "Device Address: %s", util_addr_str(ble_hs_id_get()));
-    _stack_is_ready = true; // Set ready flag so we can start advertising when requested
+    _stack_is_ready = true;                    // Set ready flag so we can start advertising when requested
 }
 
 // NimBLE task that runs the BLE event loop
