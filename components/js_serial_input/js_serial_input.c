@@ -32,7 +32,7 @@ esp_err_t js_serial_input_init(void) {
 
 // Monitor serial input and trigger action on return
 static void serial_input_handler(void *arg) {
-    char line[64];
+    char line[128];
     int idx = 0;
 
     ESP_LOGI(TAG, "Serial task started. Type commands and press Enter.");
@@ -63,41 +63,41 @@ static void serial_input_handler(void *arg) {
             // ********************* Time Events *********************
             case 't': // Read system time
                 ESP_LOGI(TAG, "Read Time command received");
-                esp_event_post(JS_EVENT_BASE, JS_EVENT_READ_SYSTEM_TIME, NULL, 0, portMAX_DELAY);
+                esp_event_post(JS_EVENT_BASE, JS_EVENT_READ_SYSTEM_TIME, NULL, 0, 0);
                 break;
 
             case 'T': // Write system time
                 ESP_LOGI(TAG, "Write Time command received");
                 // Strip out the first two character (T:) before posting the event
-                esp_event_post(JS_EVENT_BASE, JS_EVENT_WRITE_SYSTEM_TIME, line + 2, strlen(line) - 2, portMAX_DELAY);
+                esp_event_post(JS_EVENT_BASE, JS_EVENT_WRITE_SYSTEM_TIME, line + 2, strlen(line + 2) + 1, 0);
                 break;
 
             case 'n': // Set the next alarm (for testing)
                 ESP_LOGI(TAG, "JS_EVENT_SET_NEXT_ALARM");
-                esp_event_post(JS_EVENT_BASE, JS_EVENT_SET_NEXT_ALARM, NULL, 0, portMAX_DELAY);
+                esp_event_post(JS_EVENT_BASE, JS_EVENT_SET_NEXT_ALARM, NULL, 0, 0);
                 break;
 
             // ***************** User Settings Events ****************
             case 'l': // Read Location/Timezone
                 ESP_LOGI(TAG, "Read timezone command received");
-                esp_event_post(JS_EVENT_BASE, JS_EVENT_READ_TIMEZONE, NULL, 0, portMAX_DELAY);
+                esp_event_post(JS_EVENT_BASE, JS_EVENT_READ_TIMEZONE, NULL, 0, 0);
                 break;
 
             case 'L': // Write Location/Timezone
                 ESP_LOGI(TAG, "Write timezone command received");
                 // Strip out the first two character (L:) before posting the event with a null-terminated string
-                esp_event_post(JS_EVENT_BASE, JS_EVENT_WRITE_TIMEZONE, line + 2, strlen(line) - 2, portMAX_DELAY);
+                esp_event_post(JS_EVENT_BASE, JS_EVENT_WRITE_TIMEZONE, line + 2, strlen(line + 2) + 1, 0);
                 break;
 
             case 'a': // Read Alarms
                 ESP_LOGI(TAG, "Read Alarms command received");
-                esp_event_post(JS_EVENT_BASE, JS_EVENT_READ_ALARMS, NULL, 0, portMAX_DELAY);
+                esp_event_post(JS_EVENT_BASE, JS_EVENT_READ_ALARMS, NULL, 0, 0);
                 break;
 
             case 'A': // Write Alarms
                 ESP_LOGI(TAG, "Alarms command received");
-                // Strip out the first two character (A:) before posting the event
-                esp_event_post(JS_EVENT_BASE, JS_EVENT_WRITE_ALARMS, line + 2, strlen(line) - 2, portMAX_DELAY);
+                // Strip out the first two character (A:) before posting the event with a null-terminated string
+                esp_event_post(JS_EVENT_BASE, JS_EVENT_WRITE_ALARMS, line + 2, strlen(line + 2) + 1, 0);
                 break;
 
             // ******************** Audio Events ********************
@@ -107,7 +107,7 @@ static void serial_input_handler(void *arg) {
                 if (strlen(line) > 2 && line[1] == ':') {
                     // Pass the index of the audio file to play as an integer (e.g. "1" -> 1)
                     uint8_t audio_index = atoi(line + 2);
-                    esp_event_post(JS_EVENT_BASE, JS_EVENT_PLAY_AUDIO, &audio_index, sizeof(audio_index), portMAX_DELAY);
+                    esp_event_post(JS_EVENT_BASE, JS_EVENT_PLAY_AUDIO, &audio_index, sizeof(audio_index), 0);
                 } else {
                     ESP_LOGW(TAG, "Invalid Play Audio command format. Use P:[index]");
                 }
@@ -115,18 +115,8 @@ static void serial_input_handler(void *arg) {
 
             case 'e':
                 ESP_LOGI(TAG, "Emergency Button Pressed command received");
-                esp_event_post(JS_EVENT_BASE, JS_EVENT_EMERGENCY_BUTTON_PRESSED, NULL, 0, portMAX_DELAY);
+                esp_event_post(JS_EVENT_BASE, JS_EVENT_EMERGENCY_BUTTON_PRESSED, NULL, 0, 0);
                 break;
-
-                // case 'P':
-                //     ESP_LOGI(TAG, "Write Time command received");
-                //     esp_event_post(JS_EVENT_BASE, JS_EVENT_WRITE_SYSTEM_TIME, line, strlen(line) + 1, 0);
-                //     break;
-
-                // case 's':
-                //     ESP_LOGI(TAG, "Go to sleep command received");
-                //     esp_event_post(JS_EVENT_BASE, JS_EVENT_GOTO_SLEEP, line, strlen(line) + 1, 0);
-                //     break;
 
             default:
                 ESP_LOGW(TAG, "Unknown command: %s", line);

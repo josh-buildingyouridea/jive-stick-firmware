@@ -38,6 +38,8 @@
 static esp_err_t init_system(void);
 static esp_err_t init_components(void);
 static void app_event_handler(void *arg, esp_event_base_t base, int32_t id, void *data);
+static esp_err_t ble_write_response(const char *prefix, esp_err_t err);
+static esp_err_t ble_read_response(const char *prefix, const char *value);
 
 /*************************** Main Loop ***************************/
 void app_main(void) {
@@ -122,6 +124,7 @@ error:
 static void app_event_handler(void *arg, esp_event_base_t base, int32_t id,
                               void *data) {
     ESP_LOGI(TAG, "Event received: base=%s, id=%ld", base, id);
+    esp_err_t err;
 
     // Skip if not our event base
     if (base != JS_EVENT_BASE) return;
@@ -149,21 +152,22 @@ static void app_event_handler(void *arg, esp_event_base_t base, int32_t id,
             ESP_LOGE(TAG, "Failed to read time from system");
             offset += snprintf(response + offset, sizeof(response) - offset, "/SYS:error");
         }
-        // Send the response back as a notification (for testing, can remove later)
-        js_ble_notify(response);
+        js_ble_notify(response); // Send the combined response over BLE
         break;
 
     case JS_EVENT_WRITE_SYSTEM_TIME:
         // ESP_LOGI(TAG, "Set time command received with data: %s", (char *)data);
         uint64_t new_time = strtoull((char *)data, NULL, 10);
         printf("Setting system time to: %lld\n", new_time);
-        js_time_set(new_time);
+        esp_err_t err = js_time_set(new_time);
+        ble_write_response("T", err);
+        if (err != ESP_OK) ESP_LOGE(TAG, "Failed to set system time: %s", esp_err_to_name(err));
         // Update the next alarm since the time has changed
         esp_event_post(JS_EVENT_BASE, JS_EVENT_SET_NEXT_ALARM, NULL, 0, portMAX_DELAY);
         break;
 
     case JS_EVENT_SET_NEXT_ALARM:
-        ESP_LOGI(TAG, "JS_EVENT_SET_NEXT_ALARM command received");
+        // ESP_LOGI(TAG, "JS_EVENT_SET_NEXT_ALARM command received");
         uint64_t seconds_until_alarm;
         int next_alarm_song_index;
         if (js_user_settings_seconds_until_next_alarm(&seconds_until_alarm, &next_alarm_song_index) == ESP_OK) {
@@ -183,13 +187,15 @@ static void app_event_handler(void *arg, esp_event_base_t base, int32_t id,
     case JS_EVENT_READ_TIMEZONE:
         // ESP_LOGI(TAG, "Read timezone command received");
         const char *tz = js_user_settings_get_timezone();
-        printf("Current timezone: %s\n", tz);
+        // printf("Current timezone: %s\n", tz);
+        ble_read_response("l", tz);
         break;
 
     case JS_EVENT_WRITE_TIMEZONE:
-        ESP_LOGI(TAG, "Write timezone command received with data: %s", (char *)data);
+        // ESP_LOGI(TAG, "Write timezone command received with data: %s", (char *)data);
         js_user_settings_set_timezone((char *)data); // Set the timezone in user settings (and nvs)
-        js_time_set_timezone((char *)data);          // Update the system time settings
+        err = js_time_set_timezone((char *)data);    // Update the system time settings
+        ble_write_response("L", err);                // Send BLE response
         // Update the next alarm since the timezone has changed
         esp_event_post(JS_EVENT_BASE, JS_EVENT_SET_NEXT_ALARM, NULL, 0, portMAX_DELAY);
         break;
@@ -197,17 +203,15 @@ static void app_event_handler(void *arg, esp_event_base_t base, int32_t id,
     case JS_EVENT_READ_ALARMS:
         // ESP_LOGI(TAG, "Read alarms command received");
         const char *alarms = js_user_settings_get_alarms();
-        printf("Current Alarms: %s\n", alarms);
+        // printf("Current Alarms: %s\n", alarms);
+        ble_read_response("a", alarms);
         break;
 
     case JS_EVENT_WRITE_ALARMS:
-        ESP_LOGI(TAG, "Write alarms command received with data: %s", (char *)data);
-        esp_err_t rsp = js_user_settings_set_alarms((char *)data);
-        if (rsp == ESP_OK) {
-            printf("Alarms updated successfully\n");
-        } else {
-            printf("Failed to update alarms: %s\n", esp_err_to_name(rsp));
-        }
+        // ESP_LOGI(TAG, "Write alarms command received with data: %s", (char *)data);
+        err = js_user_settings_set_alarms((char *)data);
+        ble_write_response("A", err);
+
         // Update the next alarm since the alarms have changed
         esp_event_post(JS_EVENT_BASE, JS_EVENT_SET_NEXT_ALARM, NULL, 0, portMAX_DELAY);
         break;
@@ -252,4 +256,30 @@ static void app_event_handler(void *arg, esp_event_base_t base, int32_t id,
         ESP_LOGW(TAG, "Unknown event ID: %ld", id);
         break;
     }
+}
+
+// BLE Write Response helper function
+static esp_err_t ble_write_response(const char *prefix, esp_err_t err) {
+    char resp[128];
+
+    if (err == ESP_OK) {
+        snprintf(resp, sizeof(resp), "%s:OK", prefix);
+        ESP_LOGI(TAG, "%s", resp);
+    } else {
+        snprintf(resp, sizeof(resp), "%s:ERR:%s",
+                 prefix,
+                 esp_err_to_name(err));
+        ESP_LOGE(TAG, "%s", resp);
+    }
+
+    return js_ble_notify(resp);
+}
+
+// BLE Read Response helper function
+static esp_err_t ble_read_response(const char *prefix, const char *value) {
+    char resp[128];
+    snprintf(resp, sizeof(resp), "%s:%s", prefix, value);
+    ESP_LOGI(TAG, "%s", resp);
+
+    return js_ble_notify(resp);
 }
