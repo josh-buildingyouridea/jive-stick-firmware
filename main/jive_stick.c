@@ -159,7 +159,7 @@ static void app_event_handler(void *arg, esp_event_base_t base, int32_t id,
         // ESP_LOGI(TAG, "Set time command received with data: %s", (char *)data);
         uint64_t new_time = strtoull((char *)data, NULL, 10);
         printf("Setting system time to: %lld\n", new_time);
-        esp_err_t err = js_time_set(new_time);
+        err = js_time_set(new_time);
         ble_write_response("T", err);
         if (err != ESP_OK) ESP_LOGE(TAG, "Failed to set system time: %s", esp_err_to_name(err));
         // Update the next alarm since the time has changed

@@ -190,6 +190,9 @@ esp_err_t js_time_set_next_alarm(uint64_t seconds_from_now, int song_index) {
     // Stop the timer if it's already running
     esp_timer_stop(alarm_timer_handle);
 
+    // Set the global song index for the alarm callback to use
+    alarm_song_index = song_index;
+
     // Start the timer with the new alarm time
     ESP_RETURN_ON_ERROR(esp_timer_start_once(alarm_timer_handle, us), TAG, "Failed to start alarm timer");
 
