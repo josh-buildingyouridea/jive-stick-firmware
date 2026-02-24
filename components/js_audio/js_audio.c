@@ -34,10 +34,10 @@ typedef struct
 } ima_state_t;
 
 static const char *audio_tracks[] = {
-    // "/fs/FrEliseWoo59_120s_16k_adpcm_01.wav",
-    "/fs/FrEliseWoo59_3s_16k_adpcm_01.wav",
-    // "/fs/BeethovenNo5_120s_16k_adpcm_00.wav",
-    "/fs/BeethovenNo5_3s_16k_adpcm_00.wav",
+    "/fs/FrEliseWoo59_120s_16k_adpcm_01.wav",
+    // "/fs/FrEliseWoo59_3s_16k_adpcm_01.wav",
+    "/fs/BeethovenNo5_120s_16k_adpcm_00.wav",
+    // "/fs/BeethovenNo5_3s_16k_adpcm_00.wav",
     "/fs/Groovin_120s_16k_adpcm_3db.wav",
     "/fs/OldTimeRockAndRoll_120s_16k_adpcm_6db.wav",
 };
