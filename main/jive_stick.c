@@ -216,6 +216,31 @@ static void app_event_handler(void *arg, esp_event_base_t base, int32_t id,
         esp_event_post(JS_EVENT_BASE, JS_EVENT_SET_NEXT_ALARM, NULL, 0, portMAX_DELAY);
         break;
 
+    // ******************** Battery Events ********************
+    case JS_EVENT_SHOW_BATTERY_STATUS:
+        ESP_LOGI(TAG, "JS_EVENT_SHOW_BATTERY_STATUS command received");
+        js_set_show_battery_state(true);
+        break;
+
+    case JS_EVENT_HIDE_BATTERY_STATUS:
+        ESP_LOGI(TAG, "JS_EVENT_HIDE_BATTERY_STATUS command received");
+        js_set_show_battery_state(false);
+        break;
+
+    case JS_EVENT_READ_BATTERY:
+        ESP_LOGI(TAG, "JS_EVENT_READ_BATTERY command received");
+        int batterymv = js_battery_read_voltage();
+        char batterymv_str[8];
+        snprintf(batterymv_str, sizeof(batterymv_str), "%d", batterymv);
+        ble_read_response("b", batterymv_str);
+        break;
+
+    case JS_EVENT_READ_CHARGER:
+        ESP_LOGI(TAG, "JS_EVENT_READ_CHARGER command received");
+        bool charging = js_battery_is_charging();
+        ble_read_response("c", charging ? "1" : "0");
+        break;
+
     // ******************** Audio Events ********************
     case JS_EVENT_PLAY_AUDIO: // Data will be uint8_t index of the song to play
         ESP_LOGI(TAG, "Play audio command received with data: %d", *(uint8_t *)data);
@@ -239,16 +264,7 @@ static void app_event_handler(void *arg, esp_event_base_t base, int32_t id,
         js_ble_stop();
         break;
 
-    // Battery.....
-    case JS_EVENT_SHOW_BATTERY_STATUS:
-        ESP_LOGI(TAG, "JS_EVENT_SHOW_BATTERY_STATUS command received");
-        js_set_show_battery_state(true);
-        break;
-
-    case JS_EVENT_HIDE_BATTERY_STATUS:
-        ESP_LOGI(TAG, "JS_EVENT_HIDE_BATTERY_STATUS command received");
-        js_set_show_battery_state(false);
-        break;
+        // Battery.....
 
         // ***************** User Settings Events ****************
 

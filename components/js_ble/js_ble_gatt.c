@@ -150,6 +150,17 @@ static int ble_write_callback(uint16_t conn_handle, uint16_t attr_handle,
         // No payload response here (ATT-level write response is handled by stack)
         return 0;
 
+    // ******************** Battery Events ********************
+    case 'b': // Read Battery
+        ESP_LOGI(TAG, "Read Battery command received");
+        esp_event_post(JS_EVENT_BASE, JS_EVENT_READ_BATTERY, NULL, 0, 0);
+        break;
+
+    case 'c': // Read Charger
+        ESP_LOGI(TAG, "Read Charger command received");
+        esp_event_post(JS_EVENT_BASE, JS_EVENT_READ_CHARGER, NULL, 0, 0);
+        break;
+
     default:
         ESP_LOGW(TAG, "Unknown command: %s", line);
         js_ble_notify("Unknown command received");

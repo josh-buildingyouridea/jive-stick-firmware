@@ -174,6 +174,11 @@ tzset();
   - This is the format `A:HH:MM,enabled,song_index;HH:MM,enabled,song_index;...`
   - Note: No trailing `;`
 
+## Battery
+
+- Battery (mV): `b`
+- Charger: `c`
+
 ## BLE
 
 ### Setup

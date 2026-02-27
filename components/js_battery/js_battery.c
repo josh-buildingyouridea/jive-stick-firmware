@@ -58,6 +58,13 @@ void js_set_show_battery_state(bool show) {
     _show_battery_state = show;
 }
 
+int js_battery_read_voltage(void) {
+    return js_adc_battery_voltage();
+}
+
+bool js_battery_is_charging(void) {
+    return gpio_get_level(PIN_PWR_IN);
+}
 /* ************************** Local Functions ************************** */
 // Input Pin ISR
 static void input_pin_isr(void *arg) {

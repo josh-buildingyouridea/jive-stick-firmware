@@ -100,6 +100,17 @@ static void serial_input_handler(void *arg) {
                 esp_event_post(JS_EVENT_BASE, JS_EVENT_WRITE_ALARMS, line + 2, strlen(line + 2) + 1, 0);
                 break;
 
+            // ******************** Battery Events ********************
+            case 'b': // Read Battery
+                ESP_LOGI(TAG, "Read Battery command received");
+                esp_event_post(JS_EVENT_BASE, JS_EVENT_READ_BATTERY, NULL, 0, 0);
+                break;
+
+            case 'c': // Read Charger
+                ESP_LOGI(TAG, "Read Charger command received");
+                esp_event_post(JS_EVENT_BASE, JS_EVENT_READ_CHARGER, NULL, 0, 0);
+                break;
+
             // ******************** Audio Events ********************
             case 'P': // Play audio (P:[idx])
                 ESP_LOGI(TAG, "Play Audio command received");
